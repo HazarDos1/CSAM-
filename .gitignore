@@ -1,0 +1,32 @@
+# Dépendances et sorties de build
+node_modules/
+dist/
+build/
+
+# Écussons extraits de l'installation locale de CS2.
+# Ce sont des ressources du jeu appartenant à Valve : elles restent sur la
+# machine qui les a extraites et ne sont pas redistribuées ici. Chacun
+# régénère les siennes avec `npm run ranks`, et l'app sait s'en passer
+# (écussons dessinés en repli).
+src/renderer/ranks/
+
+# Anciennes tentatives en Python, remplacées par la version Electron
+venv311/
+.venv/
+__pycache__/
+*.py
+requirements.txt
+node-cs2/
+
+# Données locales : ne doivent JAMAIS être versionnées
+*.maFile
+manifest.json
+accounts.json
+vault.json
+*.bak
+
+# Divers
+.claude/
+*.log
+.DS_Store
+Thumbs.db

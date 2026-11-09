@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="Content-Security-Policy"
+		content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://avatars.steamstatic.com https://avatars.akamai.steamstatic.com; connect-src 'none'; font-src 'self';" />
+	<title>CS2 Account Manager</title>
+	<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Liseré dégradé en haut de fenêtre : la signature visuelle de l'outil. -->
+<div class="rainbow" aria-hidden="true"></div>
+
+<!-- ───────── écran de déverrouillage ───────── -->
+<div id="lockscreen" class="lockscreen">
+	<form class="lock-card" id="lock-form">
+		<h1>CS2 <span>ACCOUNT MANAGER</span></h1>
+		<p class="lock-sub" id="lock-sub">Déverrouille le coffre pour continuer.</p>
+		<input type="password" id="master-password" placeholder="Mot de passe maître" autocomplete="off" autofocus />
+		<input type="password" id="master-password-confirm" placeholder="Confirme le mot de passe" autocomplete="off" hidden />
+		<button type="submit" id="lock-submit" class="btn btn-primary">Déverrouiller</button>
+		<p class="lock-error" id="lock-error" hidden></p>
+		<p class="lock-hint">AES-256-GCM, clé dérivée par scrypt (N=2¹⁷). Sans ce mot de passe, les secrets sont irrécupérables.</p>
+	</form>
+</div>
+
+<!-- ───────── application ───────── -->
+<div id="app" class="app" hidden>
+
+	<!-- Rail d'icônes : identité de l'app, réglages, verrouillage -->
+	<nav class="rail">
+		<div class="rail-logo" title="CS2 Account Manager">
+			<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+				<path d="M12 2 3 6v6c0 5 3.8 9.2 9 10 5.2-.8 9-5 9-10V6l-9-4z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+				<circle cx="12" cy="11" r="3.1" fill="none" stroke="currentColor" stroke-width="1.6"/>
+			</svg>
+		</div>
+		<div class="rail-spacer"></div>
+		<button class="rail-btn" id="btn-settings" title="Réglages">
+			<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+				<circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+				<path d="M12 2.6v3M12 18.4v3M21.4 12h-3M5.6 12h-3M18.6 5.4l-2.1 2.1M7.5 16.5l-2.1 2.1M18.6 18.6l-2.1-2.1M7.5 7.5 5.4 5.4"
+					stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round"/>
+			</svg>
+		</button>
+		<button class="rail-btn" id="btn-lock" title="Verrouiller le coffre">
+			<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+				<rect x="5" y="10.5" width="14" height="10" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+				<path d="M8.3 10.5V7.8a3.7 3.7 0 0 1 7.4 0v2.7" fill="none" stroke="currentColor" stroke-width="1.7"/>
+			</svg>
+		</button>
+	</nav>
+
+	<main class="cols">
+		<!-- ── colonne gauche ── -->
+		<div class="col col-left">
+			<fieldset class="frame frame-accounts">
+				<legend>Accounts</legend>
+				<input type="search" id="search" class="search" placeholder="Search…" autocomplete="off" />
+				<div id="account-list" class="tree"></div>
+				<div class="frame-foot">
+					<button class="btn" id="btn-add">Add</button>
+					<button class="btn" id="btn-import">Import</button>
+					<button class="btn btn-danger-ghost" id="btn-remove-all">Remove all</button>
+				</div>
+			</fieldset>
+
+			<fieldset class="frame frame-options">
+				<legend>Options</legend>
+				<div class="opt-grid">
+					<button class="btn" id="btn-scan-all">Scan all</button>
+					<button class="btn" id="btn-scan-stale">Scan stale</button>
+					<button class="btn btn-danger-ghost" id="btn-scan-stop" hidden>Stop</button>
+					<button class="btn" id="btn-export">Export SDA</button>
+					<button class="btn" id="btn-backup">Sauvegarde</button>
+					<select id="sort" class="sel">
+						<option value="name">Nom</option>
+						<option value="scan">Dernier scan</option>
+						<option value="cooldown">Fin de cooldown</option>
+						<option value="rating">Rang Premier</option>
+					</select>
+				</div>
+				<div class="opt-stats">
+					<span>Comptes <strong id="stat-total">0</strong></span>
+					<span>Tokens <strong id="stat-tokens">0</strong></span>
+					<span id="categories" hidden></span>
+				</div>
+			</fieldset>
+		</div>
+
+		<!-- ── colonne droite : remplie par renderDetail() ── -->
+		<div class="col col-right" id="detail-pane"></div>
+	</main>
+
+	<footer class="statusbar">
+		<span id="status-text">Prêt.</span>
+		<span id="status-queue" class="status-queue"></span>
+	</footer>
+</div>
+
+<div id="modal-root"></div>
+<script src="renderer.js"></script>
+</body>
+</html>

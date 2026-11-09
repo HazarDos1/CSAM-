@@ -1,0 +1,60 @@
+{
+  "name": "cs2-account-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gestionnaire de comptes CS2 : état Prime/cooldown/ban via le Game Coordinator",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "scan:cli": "node tools/scan-cli.js",
+    "probe:gc": "node tools/probe-gc.js",
+    "check:mafile": "node tools/check-mafile.js",
+    "ranks": "node tools/extract-ranks.js",
+    "icon": "node tools/make-icon.js",
+    "dist": "node tools/make-icon.js && electron-builder --win"
+  },
+  "dependencies": {
+    "globaloffensive": "^3.3.0",
+    "steam-totp": "^2.1.2",
+    "steam-user": "^5.3.0"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.hazardos.cs2-account-manager",
+    "productName": "CS2 Account Manager",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.md",
+      "!**/__pycache__/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "CS2-Account-Manager-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CS2 Account Manager",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
