@@ -14,6 +14,7 @@ const { Vault } = require('./vault');
 const { Scanner } = require('./scanner');
 const sda = require('./sda');
 const launcher = require('./launcher');
+const autofill = require('./autofill');
 const { AuthenticatorSession } = require('./authenticator');
 const { ConfirmationSession } = require('./confirmations');
 const { decodeJwtExpiry } = require('./scanner');
@@ -360,6 +361,17 @@ function registerIpc() {
 		});
 		if (result.code) {
 			clipboard.writeText(result.code);
+		}
+
+		// Seul le chemin 'password' fait apparaître l'écran Steam Guard : en
+		// 'autologin', Steam se connecte avec sa session mémorisée et ne demande
+		// rien. Taper un code là n'aurait aucune cible.
+		if (result.code && result.mode === 'password' && vault.settings.guardAutofill) {
+			const typed = await autofill.typeGuardCode(result.code);
+			result.autofill = typed;
+			result.notes.push(typed.sent
+				? `Code Steam Guard ${typed.reason}.`
+				: `Code Steam Guard non saisi (${typed.reason}) — il est dans le presse-papier.`);
 		}
 		return result;
 	});

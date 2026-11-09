@@ -782,8 +782,17 @@ async function launchAccount(id, mode) {
 	try {
 		const res = await call(window.api.launch.account(id, mode));
 		const msg = [`${t('toast.launched')} (${res.mode === 'autologin' ? t('toast.launchedRemembered') : t('toast.launchedPassword')})`];
-		if (res.code) msg.push(t('toast.guardCopied', { code: res.code }));
-		toast(msg.join(' · '), 'ok');
+		// Trois issues distinctes, et les confondre est ce qui laissait croire à
+		// un succès alors que Steam attendait encore sur l'écran de connexion.
+		if (res.loggedIn) {
+			msg.push(t('toast.signedIn'));
+		} else if (res.autofill && res.autofill.sent) {
+			msg.push(t('toast.guardTyped'));
+		} else {
+			msg.push(t('toast.signInPending'));
+			if (res.code) msg.push(t('toast.guardCopied', { code: res.code }));
+		}
+		toast(msg.join(' · '), res.loggedIn || (res.autofill && res.autofill.sent) ? 'ok' : 'warn');
 		$('#status-text').textContent = res.notes.join(' ');
 	} catch (err) {
 		toast(err.message, 'error');
@@ -1603,6 +1612,8 @@ function settingsModal() {
 				<option value="autologin" ${s.launchMode === 'autologin' ? 'selected' : ''}>${t('set.launchRemembered')}</option>
 				<option value="password" ${s.launchMode === 'password' ? 'selected' : ''}>${t('set.launchPassword')}</option>
 			</select></div>
+		<div class="checkbox"><input type="checkbox" id="s-autofill" ${s.guardAutofill ? 'checked' : ''} /><label for="s-autofill">${t('set.guardAutofill')}</label></div>
+		<p class="hint">${t('set.guardAutofillHint')}</p>
 		<div class="field"><label>${t('set.steamPath')}</label><input id="s-steam" value="${esc(s.steamPath || '')}" placeholder="e:\\steam\\steam.exe" /></div>
 		<hr style="border:0;border-top:1px solid var(--line);margin:16px 0" />
 		<h2 style="font-size:14px">${t('set.masterPassword')}</h2>
@@ -1624,6 +1635,7 @@ function settingsModal() {
 				offlinePersona: modal.querySelector('#s-offline').checked,
 				fetchRecentGames: modal.querySelector('#s-recent').checked,
 				launchMode: modal.querySelector('#s-launch').value,
+				guardAutofill: modal.querySelector('#s-autofill').checked,
 				steamPath: modal.querySelector('#s-steam').value.trim() || null
 			}));
 			const oldPw = modal.querySelector('#s-old').value;

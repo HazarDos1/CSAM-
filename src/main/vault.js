@@ -19,6 +19,10 @@ const DEFAULT_SETTINGS = {
 	offlinePersona: true, // se connecter en invisible pendant le scan
 	fetchRecentGames: true,
 	launchMode: 'auto', // 'auto' | 'autologin' | 'password'
+	// Taper le code Steam Guard dans la fenêtre Steam au premier login d'un
+	// compte. Ne concerne que ce cas : ensuite Steam mémorise la session et ne
+	// demande plus rien. Le code reste copié dans le presse-papier dans tous les cas.
+	guardAutofill: true,
 	steamPath: null,
 	// Durée après laquelle un scan en cache est considéré comme périmé (affichage uniquement)
 	staleAfterMs: 6 * 60 * 60 * 1000,

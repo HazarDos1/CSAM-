@@ -236,18 +236,48 @@ unchanged — scan by token, not by password.
 
 ## Launching an account
 
-Two modes, because neither is right everywhere:
+One click should end with Steam signed in, nothing typed. Two modes get there:
 
-- **Remembered session** — writes `AutoLoginUser` to the registry, marks the
-  account as most recent in `loginusers.vdf`, restarts Steam. No secret travels.
-  Only works if Steam has already remembered that account.
+- **Remembered session** — writes `AutoLoginUser` to the registry, sets
+  `AutoLogin=1` on the account in `loginusers.vdf`, restarts Steam. Steam then
+  signs in on its own, **with no password and no Steam Guard code**: the session
+  token it kept acts as the second factor. No secret travels.
 - **Password** — `steam.exe -login <user> <pass>`. Always works, but the password
   is visible in the process list for the duration of the launch. Keep it for an
   account's first login.
 
-*Auto* mode (the default) picks the first if a remembered session exists. Either
-way the Steam Guard code is copied to the clipboard: the Steam client does not
-accept a 2FA code on the command line.
+Two fields govern the first mode, and confusing them is what used to send you
+back to the sign-in screen: `MostRecent` only *preselects* the account in the
+list, while `AutoLogin` is the one that decides whether Steam signs in by
+itself. Writing the first without the second leaves Steam waiting, and
+`AutoLoginUser` in the registry does not override it — the vdf wins.
+
+*Auto* mode (the default) tries the remembered session, then **checks that Steam
+actually signed in** by reading `ActiveUser` under
+`HKCU\Software\Valve\Steam\ActiveProcess`, which is `0` while the sign-in
+screen is up. If Steam stayed there, it retries with the password on its own.
+
+That check is not fussiness: `RememberPassword=1` in `loginusers.vdf` records
+only the *intent* to keep the session, never that a usable token still exists.
+The two diverge as soon as the token expires, and without the check you were
+left staring at the sign-in screen with a code in the clipboard and no
+explanation. A second, independent signal backs it up — Steam bumps the
+account's `timestamp` in `loginusers.vdf` on every successful sign-in — so one
+signal failing cannot wrongly force the password path.
+
+### The Steam Guard code
+
+Steam accepts no 2FA code on the command line; there is no official option. So
+the code is always copied to the clipboard, and, if *Type the Steam Guard code
+into the Steam window* is on, typed into the window for you.
+
+That only matters the **first** time an account signs in on the machine. After
+that Steam keeps the session and asks for nothing.
+
+It types only when the foreground window belongs to `steamwebhelper`, verified
+immediately before the keystrokes. Without that guard, a badly timed window
+switch would type the code into a chat or an address bar. If the check fails
+nothing is typed, the reason is reported, and the clipboard still has the code.
 
 ## Backing up the vault
 

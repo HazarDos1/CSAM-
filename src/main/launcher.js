@@ -4,19 +4,31 @@
  *
  * Deux modes, parce qu'aucun des deux n'est bon dans tous les cas :
  *
- * - 'autologin' : on écrit AutoLoginUser dans le registre et on marque le compte
- *   comme "MostRecent" dans loginusers.vdf, puis on redémarre Steam. C'est la
- *   méthode des switchers classiques. Propre (aucun secret ne transite), mais
- *   elle ne marche que si le compte a déjà une session mémorisée par Steam.
+ * - 'autologin' : on écrit AutoLoginUser dans le registre et on pose
+ *   AutoLogin=1 sur le compte dans loginusers.vdf, puis on redémarre Steam.
+ *   Steam se connecte alors seul, **sans mot de passe et sans code Steam Guard**
+ *   — le jeton de session qu'il a mémorisé fait office de second facteur.
+ *   Propre (aucun secret ne transite), mais réservé aux comptes déjà connus de
+ *   Steam sur cette machine.
  *
  * - 'password' : `steam.exe -login <user> <pass>`. Marche toujours, mais le mot
  *   de passe passe par la ligne de commande, donc il est visible dans la liste
  *   des processus le temps du lancement. À réserver au premier login d'un compte.
+ *   Steam demandera le code Steam Guard : il est copié dans le presse-papier, et
+ *   peut être saisi automatiquement si le réglage est activé (voir autofill.js).
  *
- * Le mode 'auto' choisit : autologin si une session mémorisée existe, sinon password.
+ * Le mode 'auto' tente l'autologin, puis **vérifie** que Steam s'est connecté
+ * en lisant `ActiveUser` dans le registre. S'il est resté sur l'écran de
+ * connexion, il reprend tout seul avec le mot de passe.
  *
- * Dans les deux cas le code Steam Guard est copié dans le presse-papier, parce que
- * le client Steam n'accepte pas de code 2FA en ligne de commande.
+ * Cette vérification n'est pas du zèle : `RememberPassword=1` dans
+ * loginusers.vdf n'indique que l'intention de mémoriser la session, jamais
+ * qu'un jeton utilisable existe encore. Les deux divergent dès que le jeton
+ * expire, et sans ce contrôle l'utilisateur se retrouvait devant l'écran de
+ * connexion avec un code dans le presse-papier et aucune explication.
+ *
+ * Après un login par mot de passe, Steam mémorise la session, et les lancements
+ * suivants se font en 'autologin' : plus rien à taper.
  */
 const fs = require('fs');
 const path = require('path');
@@ -138,23 +150,105 @@ function hasRememberedSession(steamExe, username) {
 	);
 }
 
-/** Marque le compte comme le plus récent pour que Steam le présélectionne. */
-function markMostRecent(steamExe, username) {
+/**
+ * Désigne le compte que Steam doit utiliser au prochain démarrage.
+ *
+ * Deux champs, et les confondre est précisément ce qui faisait réapparaître
+ * l'écran de connexion :
+ *
+ * - `MostRecent` ne fait que **présélectionner** le compte dans la liste.
+ * - `AutoLogin` est celui qui décide si Steam **se connecte tout seul**.
+ *
+ * Écrire le premier sans le second laisse Steam sur l'écran de connexion, et
+ * `AutoLoginUser` dans le registre n'y change rien : un autre compte garde
+ * `AutoLogin=1` et c'est le vdf qui tranche. Les deux doivent donc être posés
+ * sur la cible, et retirés partout ailleurs.
+ */
+function selectAccount(steamExe, username) {
 	const file = loginUsersPath(steamExe);
 	if (!fs.existsSync(file)) return false;
 	const vdf = parseVdf(fs.readFileSync(file, 'utf8'));
 	if (!vdf.users) return false;
 	const needle = String(username).toLowerCase();
-	let found = false;
-	for (const entry of Object.values(vdf.users)) {
+
+	// On ne réécrit rien si le compte est absent : mieux vaut laisser Steam dans
+	// un état cohérent que de retirer AutoLogin à tout le monde pour rien.
+	const entries = Object.values(vdf.users);
+	if (!entries.some((e) => String(e.AccountName || '').toLowerCase() === needle)) return false;
+
+	for (const entry of entries) {
 		const isTarget = String(entry.AccountName || '').toLowerCase() === needle;
 		entry.MostRecent = isTarget ? '1' : '0';
-		if (isTarget) found = true;
+		entry.AutoLogin = isTarget ? '1' : '0';
 	}
-	if (!found) return false;
 	fs.copyFileSync(file, `${file}.bak`);
 	fs.writeFileSync(file, stringifyVdf(vdf), 'utf8');
 	return true;
+}
+
+/**
+ * Compte actuellement connecté dans le client Steam, ou 0 si l'écran de
+ * connexion est affiché.
+ *
+ * C'est le seul signal fiable trouvé : `RememberPassword=1` dans loginusers.vdf
+ * ne dit que l'intention de mémoriser la session, pas qu'un jeton utilisable
+ * existe encore. Un compte peut donc être « mémorisé » et malgré tout renvoyer
+ * Steam sur l'écran de connexion — c'est exactement ce qui se passait ici.
+ *
+ * `ActiveUser` est un entier maintenu par Steam, indépendant de la langue de
+ * l'interface (contrairement au titre de la fenêtre, « Se connecter à Steam »).
+ */
+async function activeUser() {
+	const raw = await regQuery('HKCU\\Software\\Valve\\Steam\\ActiveProcess', 'ActiveUser');
+	if (!raw) return 0;
+	const n = Number.parseInt(raw, raw.startsWith('0x') ? 16 : 10);
+	return Number.isFinite(n) ? n : 0;
+}
+
+/** SteamID64 -> accountid 32 bits, l'unité dans laquelle Steam écrit ActiveUser. */
+function accountIdOf(steamId) {
+	if (!steamId) return 0;
+	try {
+		const id = BigInt(String(steamId).trim()) - 76561197960265728n;
+		return id > 0n && id < 4294967296n ? Number(id) : 0;
+	} catch (err) {
+		return 0;
+	}
+}
+
+/** Horodatage du dernier login réussi que Steam note pour ce compte. */
+function loginTimestamp(steamExe, username) {
+	const needle = String(username).toLowerCase();
+	const entry = Object.values(readRememberedUsers(steamExe))
+		.find((u) => String(u.AccountName || '').toLowerCase() === needle);
+	return entry ? Number(entry.timestamp) || 0 : 0;
+}
+
+/**
+ * Attend que Steam se connecte. Renvoie l'accountid obtenu, un nombre positif
+ * si la connexion est constatée sans que l'accountid soit connu, ou 0 au bout
+ * du délai — ce qui veut dire que Steam s'est arrêté sur l'écran de connexion.
+ *
+ * Deux signaux indépendants, parce que se tromper coûte cher dans les deux
+ * sens : un faux négatif renverrait le mot de passe en ligne de commande à
+ * chaque lancement, un faux positif laisserait l'utilisateur devant l'écran de
+ * connexion sans explication.
+ *
+ *  - `ActiveUser` dans le registre, mis à 0 tant que personne n'est connecté.
+ *  - le champ `timestamp` du compte dans loginusers.vdf, que Steam avance à
+ *    chaque login réussi.
+ */
+async function waitForLogin(timeoutMs = 30000, opts = {}) {
+	const { steamExe, username } = opts;
+	const before = steamExe && username ? loginTimestamp(steamExe, username) : 0;
+	const deadline = Date.now() + timeoutMs;
+	for (;;) {
+		const user = await activeUser();
+		if (user !== 0) return user;
+		if (before && loginTimestamp(steamExe, username) > before) return -1;
+		if (Date.now() >= deadline) return 0;
+		await new Promise((r) => setTimeout(r, 1000));
+	}
 }
 
 async function isSteamRunning() {
@@ -214,22 +308,63 @@ async function launch(account, opts = {}) {
 		: null;
 
 	const regKey = 'HKCU\\Software\\Valve\\Steam';
+	// `RememberPassword` dit à Steam de conserver la session. C'est ce qui permet
+	// au lancement suivant de se passer du mot de passe ET du code Steam Guard :
+	// le jeton mémorisé fait office de second facteur.
+	await regSetString(regKey, 'AutoLoginUser', account.username);
+	await regSetDword(regKey, 'RememberPassword', 1);
+
+	// Le vdf a le dernier mot sur le registre : sans AutoLogin=1 ici, Steam
+	// s'arrête sur l'écran de connexion même avec AutoLoginUser posé.
+	const selected = selectAccount(steamExe, account.username);
+
 	if (mode === 'autologin') {
-		await regSetString(regKey, 'AutoLoginUser', account.username);
-		await regSetDword(regKey, 'RememberPassword', 1);
-		if (!markMostRecent(steamExe, account.username)) {
+		if (!selected) {
 			notes.push("loginusers.vdf n'a pas pu être mis à jour (compte absent) — Steam peut demander le mot de passe.");
 		}
 		startDetached(steamExe, []);
-	} else {
-		// On pose quand même AutoLoginUser : si Steam mémorise la session, le prochain
-		// lancement pourra se faire en mode 'autologin' sans le mot de passe.
-		await regSetString(regKey, 'AutoLoginUser', account.username);
-		startDetached(steamExe, ['-login', account.username, account.password]);
-		notes.push('Le mot de passe est passé en ligne de commande pour ce lancement.');
+
+		// On ne se contente pas d'avoir lancé Steam : on vérifie qu'il s'est
+		// vraiment connecté. Sinon l'utilisateur se retrouve devant l'écran de
+		// connexion avec un code dans le presse-papier et aucune explication.
+		const expected = accountIdOf(account.steamId || (account.cache && account.cache.steamId));
+		const logged = await waitForLogin(
+			opts.loginWaitMs == null ? 30000 : opts.loginWaitMs,
+			{ steamExe, username: account.username }
+		);
+
+		if (logged !== 0) {
+			// -1 : connexion constatée par l'horodatage, sans accountid à comparer.
+			if (expected && logged > 0 && logged !== expected) {
+				notes.push(`Steam s'est connecté à un autre compte (accountid ${logged}) — vérifie le compte actif.`);
+			} else {
+				notes.push('Connecté automatiquement, sans mot de passe ni code Steam Guard.');
+			}
+			return { mode, code, steamExe, notes, loggedIn: true };
+		}
+
+		// Session mémorisée mais inutilisable : le jeton de Steam a expiré ou a
+		// été révoqué. Seul le mot de passe peut encore passer.
+		notes.push("Steam n'a pas pu réutiliser la session mémorisée (jeton expiré).");
+		if (requested === 'autologin' || !account.password) {
+			notes.push(account.password
+				? 'Mode « session mémorisée » imposé : connexion à terminer à la main.'
+				: 'Aucun mot de passe enregistré pour ce compte : connexion à terminer à la main.');
+			return { mode, code, steamExe, notes, loggedIn: false };
+		}
+		notes.push('Reprise avec le mot de passe.');
+		mode = 'password';
+		const again = await shutdownSteam(steamExe);
+		if (again.wasRunning && !again.closed) {
+			throw new Error("Steam ne s'est pas fermé à temps — ferme-le manuellement puis réessaie");
+		}
 	}
 
-	return { mode, code, steamExe, notes };
+	startDetached(steamExe, ['-login', account.username, account.password]);
+	notes.push('Le mot de passe est passé en ligne de commande pour ce lancement.');
+	notes.push('Une fois connecté, Steam mémorise la session : les lancements suivants se feront sans mot de passe ni code.');
+
+	return { mode, code, steamExe, notes, loggedIn: false };
 }
 
 /**
@@ -264,5 +399,6 @@ function findCs2ClientVersion(steamExe) {
 
 module.exports = {
 	launch, findSteam, hasRememberedSession, readRememberedUsers,
-	markMostRecent, parseVdf, stringifyVdf, findCs2ClientVersion
+	selectAccount, parseVdf, stringifyVdf, findCs2ClientVersion,
+	activeUser, accountIdOf, waitForLogin
 };

@@ -237,18 +237,53 @@ la même — scanner par token, pas par mot de passe.
 
 ## Lancer un compte
 
-Deux modes, parce qu'aucun n'est bon partout :
+Un clic doit se terminer sur un Steam connecté, sans rien taper. Deux modes y
+mènent :
 
-- **Session mémorisée** — écrit `AutoLoginUser` dans le registre, marque le compte
-  comme le plus récent dans `loginusers.vdf`, redémarre Steam. Aucun secret ne
-  circule. Ne marche que si Steam a déjà mémorisé ce compte.
+- **Session mémorisée** — écrit `AutoLoginUser` dans le registre, pose
+  `AutoLogin=1` sur le compte dans `loginusers.vdf`, redémarre Steam. Steam se
+  connecte alors seul, **sans mot de passe ni code Steam Guard** : le jeton de
+  session qu'il a gardé fait office de second facteur. Aucun secret ne circule.
 - **Mot de passe** — `steam.exe -login <user> <pass>`. Marche toujours, mais le
   mot de passe est visible dans la liste des processus le temps du lancement.
   À réserver au premier login d'un compte.
 
-Le mode *Auto* (par défaut) choisit le premier si une session mémorisée existe.
-Dans les deux cas le code Steam Guard est copié dans le presse-papier : le client
-Steam n'accepte pas de code 2FA en ligne de commande.
+Deux champs commandent le premier mode, et les confondre est ce qui renvoyait à
+l'écran de connexion : `MostRecent` ne fait que *présélectionner* le compte dans
+la liste, tandis que `AutoLogin` est celui qui décide si Steam se connecte tout
+seul. Écrire le premier sans le second laisse Steam en attente, et
+`AutoLoginUser` dans le registre n'y change rien — c'est le vdf qui tranche.
+
+Le mode *Auto* (par défaut) tente la session mémorisée, puis **vérifie que
+Steam s'est bien connecté** en lisant `ActiveUser` sous
+`HKCU\Software\Valve\Steam\ActiveProcess`, qui vaut `0` tant que l'écran de
+connexion est affiché. Si Steam y est resté, il reprend tout seul avec le mot
+de passe.
+
+Cette vérification n'est pas du zèle : `RememberPassword=1` dans
+`loginusers.vdf` n'indique que l'*intention* de mémoriser la session, jamais
+qu'un jeton utilisable existe encore. Les deux divergent dès que le jeton
+expire, et sans ce contrôle on restait devant l'écran de connexion avec un code
+dans le presse-papier et aucune explication. Un second signal indépendant le
+double — Steam avance le `timestamp` du compte dans `loginusers.vdf` à chaque
+connexion réussie — pour qu'un signal défaillant ne force pas à tort le
+chemin par mot de passe.
+
+### Le code Steam Guard
+
+Steam n'accepte aucun code 2FA en ligne de commande ; il n'existe pas d'option
+officielle. Le code est donc toujours copié dans le presse-papier, et, si
+*Taper le code Steam Guard dans la fenêtre Steam* est activé, tapé dans la
+fenêtre à ta place.
+
+Ça ne concerne que le **premier** login d'un compte sur la machine. Ensuite
+Steam garde la session et ne demande plus rien.
+
+La frappe n'a lieu que si la fenêtre au premier plan appartient à
+`steamwebhelper`, vérifié juste avant. Sans ce garde-fou, un changement de
+fenêtre mal tombé taperait le code dans une conversation ou une barre
+d'adresse. Si le contrôle échoue, rien n'est tapé, la raison est rapportée, et
+le code reste dans le presse-papier.
 
 ## Sauvegarder le coffre
 
