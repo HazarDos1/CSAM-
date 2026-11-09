@@ -265,6 +265,10 @@ npm run probe:gc -- <account_name>
 Coordinator data — the tool for diagnosing a failing login and for reading the
 actual `penalty_reason` codes. `probe:gc` lists every GC message received.
 
+Both accept whatever you have in front of you: login name, Steam persona name,
+label or SteamID, partial and case-insensitive. The UI only shows the persona
+name, so `npm run scan:cli -- ernesto` finds `internalbee9048` and says so.
+
 ```
 npm run ranks     extracts the rank badges from your CS2 installation
 npm run icon      regenerates build/icon.ico

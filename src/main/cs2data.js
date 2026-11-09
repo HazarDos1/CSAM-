@@ -70,9 +70,16 @@ const SKILL_GROUPS = [
 	'Legendary Eagle', 'Legendary Eagle Master', 'Supreme Master First Class', 'Global Elite'
 ];
 
+/**
+ * Libellé d'un code de sanction, SANS le code.
+ *
+ * Les vues affichent déjà le code brut à côté du libellé — c'est volontaire,
+ * puisque ces énumérations ne sont pas publiées par Valve. Le remettre ici
+ * donnait « Raison inconnue (code 23) (code 23) ».
+ */
 function penaltyReasonLabel(code) {
 	if (code === undefined || code === null) return null;
-	return PENALTY_REASONS[code] || `Raison inconnue (code ${code})`;
+	return PENALTY_REASONS[code] || 'Raison inconnue';
 }
 
 function skillGroupLabel(rankId) {

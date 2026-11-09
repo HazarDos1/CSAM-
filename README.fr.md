@@ -266,6 +266,11 @@ npm run probe:gc -- <nom_de_compte>
 du Game Coordinator — l'outil pour diagnostiquer un login qui échoue et pour lire
 les vrais codes `penalty_reason`. `probe:gc` liste chaque message reçu du GC.
 
+Les deux acceptent ce que tu as sous les yeux : nom de connexion, pseudo Steam,
+étiquette ou SteamID, en partiel et sans tenir compte de la casse. L'interface
+n'affiche que le pseudo, donc `npm run scan:cli -- ernesto` trouve
+`internalbee9048` et le dit.
+
 ```
 npm run ranks     extrait les écussons de rang de ton installation CS2
 npm run icon      régénère build/icon.ico

@@ -64,9 +64,11 @@ function fmtDuration(ms) {
  */
 function penaltyLabel(c) {
 	if (!c || c.penaltyReason == null) return '';
+	// Sans le code : les deux appelants l'ajoutent eux-mêmes. Le mettre ici aussi
+	// donnait « Raison inconnue (code 23) (code 23) ».
 	return state.penaltyReasons[c.penaltyReason]
 		|| c.penaltyReasonLabel
-		|| `Raison inconnue (code ${c.penaltyReason})`;
+		|| 'Raison inconnue';
 }
 
 /**
@@ -457,10 +459,21 @@ function skillGroupDrawn(rankId) {
 	return `<svg class="comp-chevron" viewBox="0 0 44 19" aria-hidden="true">${parts.join('')}</svg>`;
 }
 
-/** Statut compétitif : non classé tant que les 10 matchs de placement ne sont pas faits. */
-function compStatus(c) {
-	if (!c || !c.rankings || !c.rankings.length) return 'Aucun classement renvoyé par le GC';
-	const main = c.rankings.find((r) => r.rankTypeId === 11) || c.rankings[0];
+/** Le classement que décrit la ligne compétitive : le premier qui n'est pas Premier. */
+function competitiveRanking(c) {
+	if (!c || !c.rankings || !c.rankings.length) return null;
+	return c.rankings.find((r) => r.rankTypeId !== 11) || null;
+}
+
+/**
+ * Statut d'UN classement donné.
+ *
+ * Il prend le classement en argument, et non le compte : la ligne compétitive
+ * montrait l'écusson d'un classement et le texte d'un autre, parce que l'icône
+ * cherchait `rankTypeId !== 11` pendant que ce texte préférait le Premier.
+ */
+function compStatus(main) {
+	if (!main) return 'Aucun classement renvoyé par le GC';
 	if (main.rankId) {
 		return main.rankTypeId === 11
 			? `Premier · ${main.rankId.toLocaleString('fr-FR')}`
@@ -556,9 +569,20 @@ function renderDetail() {
 			<div class="premier-chip ${c && c.premierRating ? '' : 'unranked'}"${
 				c && c.premierRating ? ` style="background:linear-gradient(180deg,${premierBand(c.premierRating)[1]},${premierBand(c.premierRating)[2]})"` : ''
 			}>${c && c.premierRating ? esc(c.premierLabel) : '—'}</div>
-			<div class="premier-label">Premier Rating</div>
+			<div class="premier-label">Premier Rating${
+				// Sans rating mais avec des victoires au compteur : le fait est
+				// notable, et il ne figure plus sur la ligne compétitive depuis
+				// qu'elle ne décrit que le classement de son propre écusson.
+				c && !c.premierRating && c.premierWins
+					? `<span style="display:block;font-size:11.5px;color:var(--text-faint)">non classé · ${c.premierWins} victoire${c.premierWins > 1 ? 's' : ''}</span>`
+					: ''
+			}</div>
 		</div>
-		<div class="comp-row">${skillGroupImg(c && c.rankings && (c.rankings.find((r) => r.rankTypeId !== 11) || {}).rankId)}<span class="comp-text">${esc(compStatus(c))}</span></div>
+		${(() => {
+			// Un seul et même classement des deux côtés de la ligne.
+			const comp = competitiveRanking(c);
+			return `<div class="comp-row">${skillGroupImg(comp && comp.rankId)}<span class="comp-text">${esc(compStatus(comp))}</span></div>`;
+		})()}
 
 		${alert}
 

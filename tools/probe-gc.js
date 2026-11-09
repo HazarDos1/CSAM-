@@ -29,6 +29,7 @@ const { Vault } = require('../src/main/vault');
 const sda = require('../src/main/sda');
 const launcher = require('../src/main/launcher');
 const { ask } = require('./prompt');
+const { resolveAccount } = require('./accounts');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const msgName = (t) => Object.keys(GCLanguage).find((k) => GCLanguage[k] === t) || String(t);
@@ -62,13 +63,8 @@ async function loadAccounts(args) {
 
 async function main() {
 	const { wanted, accounts } = await loadAccounts(process.argv.slice(2));
-	const target = wanted
-		? accounts.find((a) => a.username.toLowerCase() === String(wanted).toLowerCase())
-		: accounts[0];
-	if (!target) {
-		console.error(`Compte "${wanted}" introuvable. Disponibles : ${accounts.map((a) => a.username).join(', ')}`);
-		process.exit(1);
-	}
+	const target = wanted ? resolveAccount(accounts, wanted) : accounts[0];
+	if (!target) process.exit(1);
 
 	let version = null;
 	try {

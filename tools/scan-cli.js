@@ -17,6 +17,7 @@ const { Scanner } = require('../src/main/scanner');
 const { Vault, DEFAULT_SETTINGS } = require('../src/main/vault');
 const sda = require('../src/main/sda');
 const { ask } = require('./prompt');
+const { resolveAccount } = require('./accounts');
 
 // Electron range son userData sous %APPDATA%\<name de package.json>.
 function vaultPath() {
@@ -82,13 +83,8 @@ async function main() {
 		process.exit(1);
 	}
 
-	const target = wanted
-		? accounts.find((a) => a.username.toLowerCase() === String(wanted).toLowerCase())
-		: accounts[0];
-	if (!target) {
-		console.error(`Compte "${wanted}" introuvable. Disponibles : ${accounts.map((a) => a.username).join(', ')}`);
-		process.exit(1);
-	}
+	const target = wanted ? resolveAccount(accounts, wanted) : accounts[0];
+	if (!target) process.exit(1);
 
 	const scanner = new Scanner({
 		dataDirectory: path.join(os.tmpdir(), 'cs2mgr-cli'),
