@@ -7,7 +7,20 @@ Electron pour tout : l'interface est du HTML/CSS/JS, le moteur utilise
 `steam-user` + `globaloffensive` dans le processus principal. Une seule techno,
 une seule commande.
 
-## Démarrer
+## Installer
+
+**[⬇ Télécharger la dernière version](https://github.com/HazarDos1/CSAM-/releases/latest)**
+— un installateur Windows autonome.
+
+Rien d'autre à installer : Node.js, Electron et les bibliothèques Steam sont
+déjà dans l'exécutable. L'installation se fait pour ton compte Windows, donc
+sans droits administrateur.
+
+> L'exécutable n'est pas signé (un certificat coûte quelques centaines d'euros
+> par an). Windows SmartScreen affichera donc un avertissement au premier
+> lancement : *Informations complémentaires* → *Exécuter quand même*.
+
+### Ou depuis les sources
 
 ```
 npm install
@@ -267,9 +280,12 @@ lecture d'un JSON venant de SDA ou de Steam doit passer par cette fonction.
 
 ## Écussons de rang
 
-Les écussons authentiques ne sont **pas livrés** avec ce dépôt : ce sont des
-ressources du jeu appartenant à Valve. Pour les afficher, extrais-les de ta
-propre installation de CS2 :
+Si tu as pris l'installateur, ils sont déjà dedans : rien à faire.
+
+Ils ne sont en revanche **pas livrés dans ce dépôt** : ce sont des ressources
+du jeu appartenant à Valve, et les redistribuer n'est pas la même chose que les
+lire depuis sa propre copie. Depuis les sources, extrais-les donc de ton
+installation de CS2 :
 
 ```
 npm run ranks
@@ -280,22 +296,17 @@ les 19 écussons de groupe de skill (SVG vectoriels) et les 40 médailles de
 niveau (PNG 128×128). Sans eux, l'app dessine ses propres écussons : rien ne
 casse, c'est juste moins joli.
 
-## Construire l'exécutable
+## Construire l'exécutable soi-même
 
 ```
 npm run dist
 ```
 
-Produit `dist/CS2-Account-Manager-Setup-<version>.exe`, un installateur Windows
-autonome : ni Node.js ni Electron ne sont requis sur la machine cible.
-L'installation se fait par utilisateur, sans droits administrateur.
+Produit `dist/CS2-Account-Manager-Setup-<version>.exe` — exactement ce qui est
+publié dans les [releases](https://github.com/HazarDos1/CSAM-/releases).
 
 Le coffre vit dans `%APPDATA%\cs2-account-manager\`, **hors** du dossier
-d'installation : désinstaller ne l'efface pas.
-
-L'exécutable n'est pas signé (un certificat coûte quelques centaines d'euros
-par an), donc Windows SmartScreen affiche un avertissement au premier
-lancement.
+d'installation : désinstaller ou mettre à jour ne l'efface pas.
 
 ## Licence
 
