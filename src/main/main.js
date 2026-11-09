@@ -84,7 +84,9 @@ function handle(channel, fn) {
 		try {
 			return { ok: true, data: await fn(...args) };
 		} catch (err) {
-			return { ok: false, error: err.message || String(err) };
+			// `kind` accompagne le message : le renderer doit pouvoir reconnaître
+			// certains échecs sans lire la prose, qui est traduisible.
+			return { ok: false, error: err.message || String(err), kind: err.kind || null };
 		}
 	});
 }

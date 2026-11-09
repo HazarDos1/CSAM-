@@ -44,7 +44,14 @@ a key missing from French falls back to the English string rather than showing
 a blank, and an unknown key renders as its own name so the gap is visible
 instead of silent.
 
-Messages written by the engine (the main process) are still French only.
+The whole interface goes through it — including every modal: adding an
+account, editing, SDA import/export, vault backup, mobile confirmations and
+the full authenticator flow.
+
+Messages written by the engine (the main process) are still French only. The
+renderer never branches on their wording: when it needs to recognise a specific
+failure it reads a `kind` carried alongside the message, so a future translation
+of the engine cannot silently break the UI.
 
 ## Adding your accounts
 

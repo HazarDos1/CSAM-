@@ -68,7 +68,7 @@ function penaltyLabel(c) {
 	// donnait « Raison inconnue (code 23) (code 23) ».
 	return state.penaltyReasons[c.penaltyReason]
 		|| c.penaltyReasonLabel
-		|| 'Raison inconnue';
+		|| t('detail.reasonUnknown');
 }
 
 /**
@@ -127,7 +127,13 @@ function toast(message, kind = '') {
 /** Déballe {ok, data}|{ok:false, error} ; jette en cas d'erreur pour que l'appelant gère. */
 async function call(promise) {
 	const res = await promise;
-	if (!res.ok) throw new Error(res.error);
+	if (!res.ok) {
+		// Le `kind` voyage à côté du message. Reconnaître un échec en testant son
+		// texte casserait en silence dès que ce texte change de langue.
+		const err = new Error(res.error);
+		if (res.kind) err.kind = res.kind;
+		throw err;
+	}
 	return res.data;
 }
 
@@ -361,7 +367,7 @@ function star(cx, cy, r, fill) {
  */
 function rankBadgeImg(level) {
 	const n = Math.max(1, Math.min(40, Number(level) || 1));
-	return `<img class="rank-badge" src="ranks/level${n}.png" alt="Rank ${n}"
+	return `<img class="rank-badge" src="ranks/level${n}.png" alt="${t('detail.rank')} ${n}"
 		data-fallback="level" data-level="${n}" />`;
 }
 
@@ -578,10 +584,10 @@ function renderDetail() {
 	}
 	if (c && (c.vacBanned === true || c.penaltyPermanent)) {
 		alert += `<div class="alert danger"><div class="alert-timer">${c.vacBanned === true ? t('detail.bannedVac') : t('detail.permanentBan')}</div>
-			<div class="alert-sub">${esc(penaltyLabel(c))}${c.penaltyReason != null ? ` · code ${c.penaltyReason}` : ''}</div></div>`;
+			<div class="alert-sub">${esc(penaltyLabel(c))}${c.penaltyReason != null ? ` · ${t('detail.code')} ${c.penaltyReason}` : ''}</div></div>`;
 	} else if (left) {
 		alert += `<div class="alert"><div class="alert-timer" id="cooldown-timer">${fmtDuration(left)}</div>
-			<div class="alert-sub">${esc(penaltyLabel(c))} (code ${c.penaltyReason}) · fin ${fmtDate(c.penaltyEndsAt)}</div></div>`;
+			<div class="alert-sub">${esc(penaltyLabel(c))} (${t('detail.code')} ${c.penaltyReason}) · ${t('detail.ends')} ${fmtDate(c.penaltyEndsAt)}</div></div>`;
 	}
 
 	pane.innerHTML = `
@@ -595,14 +601,14 @@ function renderDetail() {
 				<div class="info-line copyable" data-copy="${esc(a.username)}">${esc(a.username)}</div>
 				<div class="info-line copyable" data-copy="${esc(steamId)}">${esc(steamId || '—')}</div>
 				<div class="info-line">${accountId ? `[U:1:${accountId}]` : ''}</div>
-				<div class="info-line">Last played: ${c && c.lastMatchAt ? fmtAgo(c.lastMatchAt) : '—'}</div>
+				<div class="info-line">${t('detail.lastPlayed')} : ${c && c.lastMatchAt ? fmtAgo(c.lastMatchAt) : '—'}</div>
 			</div>
 		</div>
 
 		${lvl ? `<div class="rank-row">
 			${rankBadgeImg(c.playerLevel)}
 			<div class="rank-meta">
-				<div class="rank-title">${esc(rankName(c.playerLevel))} <span style="color:#c6c9ce">Rank ${c.playerLevel}</span></div>
+				<div class="rank-title">${esc(rankName(c.playerLevel))} <span style="color:#c6c9ce">${t('detail.rank')} ${c.playerLevel}</span></div>
 				<div class="rank-bar"><div style="width:${lvl.pct.toFixed(1)}%"></div></div>
 				<div class="rank-xp">${lvl.xp.toLocaleString('fr-FR')} / ${XP_PER_LEVEL.toLocaleString('fr-FR')} XP</div>
 			</div>
@@ -612,7 +618,7 @@ function renderDetail() {
 			<div class="premier-chip ${c && c.premierRating ? '' : 'unranked'}"${
 				c && c.premierRating ? ` style="background:linear-gradient(180deg,${premierBand(c.premierRating)[1]},${premierBand(c.premierRating)[2]})"` : ''
 			}>${c && c.premierRating ? esc(c.premierLabel) : '—'}</div>
-			<div class="premier-label">Premier Rating${
+			<div class="premier-label">${t('detail.premierRating')}${
 				// Sans rating mais avec des victoires au compteur : le fait est
 				// notable, et il ne figure plus sur la ligne compétitive depuis
 				// qu'elle ne décrit que le classement de son propre écusson.
@@ -634,9 +640,9 @@ function renderDetail() {
 		${alert}
 
 		<div class="rows">
-			<div class="row"><span class="row-label">Prime</span><span class="row-value">${
+			<div class="row"><span class="row-label">${t('detail.prime')}</span><span class="row-value">${
 				!c || c.prime == null ? t('detail.unknown') : c.prime ? `<span style="color:var(--prime)">${t('detail.yes')}</span>` : t('detail.no')}</span></div>
-			<div class="row"><span class="row-label">VAC</span><span class="row-value">${
+			<div class="row"><span class="row-label">${t('detail.vac')}</span><span class="row-value">${
 				!c || !c.scannedAt ? '—'
 					: c.vacKnown !== true ? `<span style="color:var(--text-faint)">${t('detail.notReported')}</span>`
 					: c.vacBanned ? `<span style="color:var(--danger)">${t('detail.bannedVac')}</span>` : t('detail.noBan')}</span></div>
@@ -668,11 +674,11 @@ function renderDetail() {
 			<div class="log-line"><span class="spinner"></span> ${esc(state.progress[a.id] || t('detail.starting'))}</div></div>` : ''}
 
 		${a.secretRejected ? `<div class="guard-row">
-			<span class="row-label">Steam Guard</span>
+			<span class="row-label">${t('act.steamGuard')}</span>
 			<span style="color:var(--danger);font-weight:700">${t('act.secretRejected')}</span>
 		</div>
 		<p class="field hint" style="margin:6px 0 0">${t('act.secretRejectedHint')}</p>` : `<div class="guard-row">
-			<span class="row-label">Steam Guard</span>
+			<span class="row-label">${t('act.steamGuard')}</span>
 			<span class="guard-code" id="guard-code">${a.hasSharedSecret ? '·····' : '—'}</span>
 			<span class="guard-bar"><div id="guard-bar" style="width:0%"></div></span>
 			<button class="btn btn-sm" data-act="copy-code" ${a.hasSharedSecret ? '' : 'disabled'}>${t('btn.copy')}</button>
@@ -690,7 +696,7 @@ function renderDetail() {
 			${a.hasRevocationCode ? `<button class="btn btn-sm" data-act="reveal-revocation">${t('act.revocationCode')}</button>` : ''}
 		</div>
 		${!a.hasPassword && !a.hasSharedSecret
-			? '<p class="field hint" style="margin-top:6px">Enregistre d\'abord le mot de passe Steam (bouton « Modifier »).</p>' : ''}
+			? `<p class="field hint" style="margin-top:6px">${t('act.needPassword')}</p>` : ''}
 	</fieldset>
 
 	<fieldset class="frame">
@@ -842,9 +848,9 @@ let authLogLines = [];
 
 function authLogHtml() {
 	return `<details class="authlog" open>
-		<summary>Journal technique · <span id="a-log-count">${authLogLines.length}</span> ligne(s)</summary>
-		<pre class="raw-dump" id="a-log">${esc(authLogLines.join('\n')) || 'En attente…'}</pre>
-		<button class="btn btn-sm" id="a-log-copy">Copier le journal</button>
+		<summary>${t('auth.log')} · <span id="a-log-count">${authLogLines.length}</span> ${t('auth.logLines')}</summary>
+		<pre class="raw-dump" id="a-log">${esc(authLogLines.join('\n')) || t('auth.logWaiting')}</pre>
+		<button class="btn btn-sm" id="a-log-copy">${t('auth.logCopy')}</button>
 	</details>`;
 }
 
@@ -892,7 +898,7 @@ function modalError(modal, message) {
 function authenticatorModal(account) {
 	authFlowActive = true;
 	authLogLines = [];
-	const modal = openModal('<h2>Authenticator Steam</h2><p class="modal-sub">Connexion…</p>');
+	const modal = openModal(`<h2>${t('auth.title')}</h2><p class="modal-sub">${t('auth.connecting')}</p>`);
 	const sub = esc(account.label ? `${account.label} · ${account.username}` : account.username);
 
 	// Le journal est réinjecté à chaque écran : la modale se réécrit entièrement
@@ -908,7 +914,7 @@ function authenticatorModal(account) {
 			});
 		}
 	};
-	render('<h2>Authenticator Steam</h2><p class="modal-sub">Connexion…</p>');
+	render(`<h2>${t('auth.title')}</h2><p class="modal-sub">${t('auth.connecting')}</p>`);
 	const busy = (btn, on, label) => {
 		if (!btn) return;
 		btn.disabled = on;
@@ -919,27 +925,27 @@ function authenticatorModal(account) {
 	// ── écran final ──
 	const done = (message) => {
 		authFlowActive = false;
-		render(`<h2>Terminé</h2><p class="modal-sub">${sub}</p>
+		render(`<h2>${t('auth.done')}</h2><p class="modal-sub">${sub}</p>
 			<p class="modal-ok">${esc(message)}</p>
-			<div class="modal-actions"><button class="btn btn-primary" data-close>Fermer</button></div>`);
+			<div class="modal-actions"><button class="btn btn-primary" data-close>${t('btn.close')}</button></div>`);
 		reloadAccounts();
 	};
 
 	// ── étape 5 : code SMS → finalisation ──
 	const stepSms = (phoneHint) => {
-		render(`<h2>Code de confirmation</h2><p class="modal-sub">${sub}</p>
-			<p class="field hint">Steam a envoyé un SMS${phoneHint ? ` au numéro se terminant par <strong>${esc(phoneHint)}</strong>` : ''}.</p>
-			<div class="field"><label>Code reçu par SMS</label><input id="a-sms" autocomplete="off" spellcheck="false" /></div>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-primary" id="a-go">Activer</button></div>`);
+		render(`<h2>${t('auth.smsTitle')}</h2><p class="modal-sub">${sub}</p>
+			<p class="field hint">${phoneHint ? t('auth.smsSentTo', { hint: esc(phoneHint) }) : t('auth.smsSent')}</p>
+			<div class="field"><label>${t('auth.smsLabel')}</label><input id="a-sms" autocomplete="off" spellcheck="false" /></div>
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-primary" id="a-go">${t('auth.activate')}</button></div>`);
 		const go = modal.querySelector('#a-go');
 		go.addEventListener('click', async () => {
 			const code = modal.querySelector('#a-sms').value.trim();
-			if (!code) return modalError(modal, 'Saisis le code reçu par SMS.');
-			busy(go, true, 'Activation…');
+			if (!code) return modalError(modal, t('auth.enterSms'));
+			busy(go, true, t('auth.activating'));
 			try {
 				await call(window.api.auth2fa.finalize(code));
-				done('Authenticator actif. L\'app génère maintenant les codes Steam Guard de ce compte.');
+				done(t('auth.active'));
 			} catch (err) {
 				busy(go, false);
 				modalError(modal, err.message);
@@ -950,18 +956,16 @@ function authenticatorModal(account) {
 
 	// ── étape 4 : code de révocation, à noter impérativement ──
 	const stepRevocation = (info) => {
-		render(`<h2>Note ce code</h2><p class="modal-sub">${sub}</p>
+		render(`<h2>${t('auth.revocationTitle')}</h2><p class="modal-sub">${sub}</p>
 			<div class="cooldown-box permanent" style="text-align:center">
 				<div class="cooldown-timer" style="font-size:26px;letter-spacing:3px;color:var(--text)">${esc(info.revocationCode)}</div>
-				<div class="cooldown-reason">code de révocation</div>
+				<div class="cooldown-reason">${t('auth.revocationLabel')}</div>
 			</div>
-			<p class="field hint">C'est la <strong>seule</strong> façon de reprendre le compte si tu perds le secret.
-			Steam ne le réaffichera jamais. Il est déjà enregistré chiffré dans le coffre,
-			mais note-le aussi ailleurs : si tu perds le mot de passe maître, tout part avec.</p>
-			<label class="checkbox"><input type="checkbox" id="a-ack" /> J'ai noté le code de révocation</label>
+			<p class="field hint">${t('auth.revocationHint')}</p>
+			<label class="checkbox"><input type="checkbox" id="a-ack" /> ${t('auth.revocationAck')}</label>
 			<div class="modal-actions">
-				<button class="btn" id="a-copy">Copier</button>
-				<button class="btn btn-primary" id="a-next" disabled>Continuer</button>
+				<button class="btn" id="a-copy">${t('btn.copy')}</button>
+				<button class="btn btn-primary" id="a-next" disabled>${t('auth.continue')}</button>
 			</div>`);
 		const next = modal.querySelector('#a-next');
 		modal.querySelector('#a-ack').addEventListener('change', (e) => { next.disabled = !e.target.checked; });
@@ -975,27 +979,25 @@ function authenticatorModal(account) {
 	// ── étape 3b : retrait de l'authenticator existant ──
 	const stepRemove = () => {
 		const attempts = null;
-		render(`<h2>Retirer l'authenticator</h2><p class="modal-sub">${sub}</p>
+		render(`<h2>${t('auth.removeTitle')}</h2><p class="modal-sub">${sub}</p>
 			<div class="cooldown-box permanent">
-				<div style="font-weight:600;color:var(--danger)">15 jours de restriction</div>
-				<div class="cooldown-reason">Retirer un authenticator repasse le compte en Steam Guard e-mail.
-				Steam bloque alors les échanges et la vente sur le marché pendant 15 jours.</div>
+				<div style="font-weight:600;color:var(--danger)">${t('auth.removeWarn')}</div>
+				<div class="cooldown-reason">${t('auth.removeWarnSub')}</div>
 			</div>
-			<p class="field hint">Il faut le code de révocation de l'authenticator <em>actuel</em>
-			(il commence par R).${attempts != null ? ` Steam annonce <strong>${attempts}</strong> tentative(s) restante(s) — au-delà, le compte n'est plus récupérable sans passer par le support.` : ''}</p>
-			<div class="field"><label>Code de révocation actuel</label><input id="a-rev" autocomplete="off" spellcheck="false" placeholder="RXXXXX" /></div>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-danger-ghost" id="a-go">Retirer</button></div>`);
+			<p class="field hint">${t('auth.removeHint')}${attempts != null ? ` ${t('auth.removeAttempts', { n: attempts })}` : ''}</p>
+			<div class="field"><label>${t('auth.removeLabel')}</label><input id="a-rev" autocomplete="off" spellcheck="false" placeholder="RXXXXX" /></div>
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-danger-ghost" id="a-go">${t('auth.remove')}</button></div>`);
 		const go = modal.querySelector('#a-go');
 		go.addEventListener('click', async () => {
 			const code = modal.querySelector('#a-rev').value.trim();
-			if (!code) return modalError(modal, 'Saisis le code de révocation.');
-			busy(go, true, 'Retrait…');
+			if (!code) return modalError(modal, t('auth.enterRevocation'));
+			busy(go, true, t('auth.removing'));
 			try {
 				const res = await call(window.api.auth2fa.remove(code));
-				done(`Authenticator retiré. Le compte est repassé en Steam Guard e-mail${
-					res.attemptsLeft != null ? ` (${res.attemptsLeft} tentative(s) de révocation restantes)` : ''
-				}. Les échanges sont bloqués 15 jours.`);
+				done(`${t('auth.removed')}${
+					res.attemptsLeft != null ? ` (${t('auth.removedAttempts', { n: res.attemptsLeft })})` : ''
+				}`);
 			} catch (err) {
 				busy(go, false);
 				modalError(modal, err.message);
@@ -1005,16 +1007,14 @@ function authenticatorModal(account) {
 
 	// ── étape 3b : Steam dit qu'un authenticator existe déjà ──
 	const stepAlreadyHas = (message) => {
-		render(`<h2>Authenticator déjà présent</h2><p class="modal-sub">${sub}</p>
-			<p class="field hint">${esc(message || "Steam refuse d'en créer un second.")}</p>
+		render(`<h2>${t('auth.alreadyTitle')}</h2><p class="modal-sub">${sub}</p>
+			<p class="field hint">${esc(message || t('auth.alreadyDefault'))}</p>
 			<div class="alert danger">
-				<div style="font-weight:700;color:var(--danger)">Le retrait coûte 15 jours d'échanges</div>
-				<div class="alert-sub">Le compte repasse en Steam Guard e-mail, et Steam bloque
-				échanges et marché pendant 15 jours. Si tu as encore accès aux codes actuels
-				(appli mobile ou SDA), importer le .maFile existant est préférable.</div>
+				<div style="font-weight:700;color:var(--danger)">${t('auth.removeCost')}</div>
+				<div class="alert-sub">${t('auth.removeCostSub')}</div>
 			</div>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-danger-ghost" id="a-rm">Retirer quand même</button></div>`);
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-danger-ghost" id="a-rm">${t('auth.removeAnyway')}</button></div>`);
 		modal.querySelector('#a-rm').addEventListener('click', () => stepRemove());
 	};
 
@@ -1022,26 +1022,22 @@ function authenticatorModal(account) {
 	// Le secret est au coffre depuis AddAuthenticator ; relancer une création
 	// ferait répondre DuplicateRequest à Steam. On reprend donc au code SMS.
 	const stepResume = () => {
-		render(`<h2>Activation à terminer</h2><p class="modal-sub">${sub}</p>
-			<p class="field hint">Un authenticator a déjà été créé pour ce compte mais n'a jamais
-			été activé. Son secret et son code de révocation sont enregistrés dans le coffre.
-			Il reste à saisir le code SMS pour l'activer.</p>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-primary" id="a-go">Saisir le code SMS</button></div>`);
+		render(`<h2>${t('auth.resumeTitle')}</h2><p class="modal-sub">${sub}</p>
+			<p class="field hint">${t('auth.resumeHint')}</p>
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-primary" id="a-go">${t('auth.resumeGo')}</button></div>`);
 		modal.querySelector('#a-go').addEventListener('click', () => stepSms(null));
 	};
 
 	// ── étape 3 : demande de création ──
 	const stepCreate = () => {
-		render(`<h2>Créer l'authenticator</h2><p class="modal-sub">${sub}</p>
-			<p class="field hint">Steam va générer le secret et envoyer un SMS de confirmation.
-			Le compte doit avoir un <strong>numéro de téléphone rattaché et vérifié</strong>, sinon Steam refuse.
-			S'il a déjà un authenticator, l'app préviendra avant toute action.</p>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-primary" id="a-go">Créer</button></div>`);
+		render(`<h2>${t('auth.createTitle')}</h2><p class="modal-sub">${sub}</p>
+			<p class="field hint">${t('auth.createHint')}</p>
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-primary" id="a-go">${t('auth.create')}</button></div>`);
 		const go = modal.querySelector('#a-go');
 		go.addEventListener('click', async () => {
-			busy(go, true, 'Demande en cours…');
+			busy(go, true, t('auth.requesting'));
 			try {
 				const res = await call(window.api.auth2fa.add());
 				// Steam signale un authenticator existant par un statut, pas par une
@@ -1054,12 +1050,12 @@ function authenticatorModal(account) {
 				// Le seul correctif possible passe par le site Steam : l'ajout d'un
 				// numéro demande une confirmation par e-mail, qu'aucune app ne peut
 				// court-circuiter. On met donc le lien à portée de clic.
-				if (/numéro de téléphone/i.test(err.message) && !modal.querySelector('#a-phone')) {
+				if (err.kind === 'phone' && !modal.querySelector('#a-phone')) {
 					const actions = modal.querySelector('.modal-actions');
 					const link = document.createElement('button');
 					link.className = 'btn';
 					link.id = 'a-phone';
-					link.textContent = 'Ouvrir la page téléphone Steam';
+					link.textContent = t('auth.openPhonePage');
 					link.addEventListener('click', () => window.api.openExternal('https://store.steampowered.com/phone/add'));
 					actions.insertBefore(link, actions.firstChild);
 				}
@@ -1070,19 +1066,19 @@ function authenticatorModal(account) {
 	// ── étape 2 : Steam réclame un code de connexion ──
 	const stepGuard = (outcome) => {
 		const viaEmail = outcome.via === 'email';
-		render(`<h2>Code de connexion</h2><p class="modal-sub">${sub}</p>
+		render(`<h2>${t('auth.guardTitle')}</h2><p class="modal-sub">${sub}</p>
 			<p class="field hint">${viaEmail
-				? `Steam a envoyé un code par e-mail${outcome.domain ? ` (<strong>${esc(outcome.domain)}</strong>)` : ''}.`
-				: 'Steam demande le code de l\'authenticator actuel de ce compte.'}</p>
-			${outcome.lastCodeWrong ? '<p class="modal-error">Code refusé, réessaie.</p>' : ''}
-			<div class="field"><label>Code</label><input id="a-guard" autocomplete="off" spellcheck="false" /></div>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-primary" id="a-go">Valider</button></div>`);
+				? `${t('auth.guardEmail')}${outcome.domain ? ` (<strong>${esc(outcome.domain)}</strong>)` : ''}.`
+				: t('auth.guardTotp')}</p>
+			${outcome.lastCodeWrong ? `<p class="modal-error">${t('auth.guardWrong')}</p>` : ''}
+			<div class="field"><label>${t('auth.code')}</label><input id="a-guard" autocomplete="off" spellcheck="false" /></div>
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-primary" id="a-go">${t('auth.submit')}</button></div>`);
 		const go = modal.querySelector('#a-go');
 		go.addEventListener('click', async () => {
 			const code = modal.querySelector('#a-guard').value.trim();
-			if (!code) return modalError(modal, 'Saisis le code.');
-			busy(go, true, 'Vérification…');
+			if (!code) return modalError(modal, t('auth.enterCode'));
+			busy(go, true, t('auth.checking'));
 			try {
 				const res = await call(window.api.auth2fa.guardCode(code));
 				if (res.state === 'needGuardCode') return stepGuard(res);
@@ -1105,9 +1101,9 @@ function authenticatorModal(account) {
 			stepCreate();
 		} catch (err) {
 			authFlowActive = false;
-			render(`<h2>Connexion impossible</h2><p class="modal-sub">${sub}</p>
+			render(`<h2>${t('auth.loginFailed')}</h2><p class="modal-sub">${sub}</p>
 				<p class="modal-error">${esc(err.message)}</p>
-				<div class="modal-actions"><button class="btn" data-close>Fermer</button></div>`);
+				<div class="modal-actions"><button class="btn" data-close>${t('btn.close')}</button></div>`);
 		}
 	})();
 }
@@ -1121,15 +1117,12 @@ function authenticatorModal(account) {
  * le dit plutôt que de laisser croire à un export anodin.
  */
 function backupModal() {
-	const modal = openModal(`<h2>Sauvegarde du coffre</h2>
-		<p class="field hint">La sauvegarde est une copie du coffre <strong>déjà chiffré</strong> :
-		rien n'est déchiffré au passage, et le fichier reste inutilisable sans le mot de passe
-		maître (scrypt N=2¹⁷, AES-256-GCM). Garde-la hors de cette machine : c'est l'unique
-		copie de tes codes de révocation.</p>
+	const modal = openModal(`<h2>${t('backup.title')}</h2>
+		<p class="field hint">${t('backup.hint')}</p>
 		<div class="modal-actions">
-			<button class="btn" data-close>Fermer</button>
-			<button class="btn" id="b-restore">Restaurer…</button>
-			<button class="btn btn-primary" id="b-save">Sauvegarder…</button>
+			<button class="btn" data-close>${t('btn.close')}</button>
+			<button class="btn" id="b-restore">${t('backup.restore')}</button>
+			<button class="btn btn-primary" id="b-save">${t('backup.save')}</button>
 		</div>`);
 
 	modal.querySelector('#b-save').addEventListener('click', async () => {
@@ -1138,14 +1131,14 @@ function backupModal() {
 		try {
 			const res = await call(window.api.vault.backup());
 			if (res.canceled) { btn.disabled = false; return; }
-			modal.innerHTML = `<h2>Sauvegarde écrite</h2>
+			modal.innerHTML = `<h2>${t('backup.written')}</h2>
 				<p class="field hint">${esc(res.path)}</p>
 				<div class="rows">
-					<div class="row"><span class="row-label">Taille</span><span class="row-value">${res.bytes.toLocaleString('fr-FR')} octets</span></div>
+					<div class="row"><span class="row-label">${t('backup.size')}</span><span class="row-value">${res.bytes.toLocaleString(t('locale'))} ${t('backup.bytes')}</span></div>
 					<div class="row"><span class="row-label">SHA-256</span><span class="row-value mono">${esc(res.sha256.slice(0, 32))}…</span></div>
 				</div>
-				<p class="field hint">Empreinte vérifiée après écriture : la copie est identique à l'original.</p>
-				<div class="modal-actions"><button class="btn btn-primary" data-close>Fermer</button></div>`;
+				<p class="field hint">${t('backup.checked')}</p>
+				<div class="modal-actions"><button class="btn btn-primary" data-close>${t('btn.close')}</button></div>`;
 		} catch (err) {
 			btn.disabled = false;
 			modalError(modal, err.message);
@@ -1155,28 +1148,27 @@ function backupModal() {
 	modal.querySelector('#b-restore').addEventListener('click', async () => {
 		const file = await window.api.vault.pickBackup();
 		if (!file) return;
-		modal.innerHTML = `<h2>Restaurer le coffre</h2>
+		modal.innerHTML = `<h2>${t('backup.restoreTitle')}</h2>
 			<p class="field hint">${esc(file)}</p>
 			<div class="alert danger">
-				<div style="font-weight:700;color:var(--danger)">Le coffre actuel sera remplacé</div>
-				<div class="alert-sub">Il est d'abord copié à côté sous <code>.bak</code>, donc l'opération
-				reste réversible. Le mot de passe est vérifié avant tout remplacement.</div>
+				<div style="font-weight:700;color:var(--danger)">${t('backup.restoreWarn')}</div>
+				<div class="alert-sub">${t('backup.restoreWarnSub')}</div>
 			</div>
-			<div class="field"><label>Mot de passe maître de la sauvegarde</label>
+			<div class="field"><label>${t('backup.restorePassword')}</label>
 				<input type="password" id="b-pw" autocomplete="off" /></div>
-			<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-			<button class="btn btn-danger-ghost" id="b-go">Restaurer</button></div>`;
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-danger-ghost" id="b-go">${t('backup.restoreGo')}</button></div>`;
 		const go = modal.querySelector('#b-go');
 		go.addEventListener('click', async () => {
 			const pw = modal.querySelector('#b-pw').value;
-			if (!pw) return modalError(modal, 'Saisis le mot de passe de la sauvegarde.');
+			if (!pw) return modalError(modal, t('backup.restoreEnter'));
 			go.disabled = true;
 			try {
 				const res = await call(window.api.vault.restore(file, pw));
-				modal.innerHTML = `<h2>Coffre restauré</h2>
-					<p class="modal-ok">${res.accounts} compte(s) retrouvé(s).</p>
-					${res.previous ? `<p class="field hint">Ancien coffre conservé : ${esc(res.previous)}</p>` : ''}
-					<div class="modal-actions"><button class="btn btn-primary" data-close>Fermer</button></div>`;
+				modal.innerHTML = `<h2>${t('backup.restored')}</h2>
+					<p class="modal-ok">${t('backup.restoredCount', { n: res.accounts })}</p>
+					${res.previous ? `<p class="field hint">${t('backup.previous')} : ${esc(res.previous)}</p>` : ''}
+					<div class="modal-actions"><button class="btn btn-primary" data-close>${t('btn.close')}</button></div>`;
 				reloadAccounts();
 			} catch (err) {
 				go.disabled = false;
@@ -1198,7 +1190,7 @@ let confFlowActive = false;
 
 function confirmationsModal(account) {
 	confFlowActive = true;
-	const modal = openModal('<h2>Confirmations</h2><p class="modal-sub">Connexion…</p>');
+	const modal = openModal(`<h2>${t('conf.title')}</h2><p class="modal-sub">${t('auth.connecting')}</p>`);
 	const sub = esc(account.label ? `${account.label} · ${account.username}` : account.username);
 	let items = [];
 
@@ -1206,9 +1198,9 @@ function confirmationsModal(account) {
 
 	const fail = (message) => {
 		confFlowActive = false;
-		render(`<h2>Confirmations</h2><p class="modal-sub">${sub}</p>
+		render(`<h2>${t('conf.title')}</h2><p class="modal-sub">${sub}</p>
 			<p class="modal-error">${esc(message)}</p>
-			<div class="modal-actions"><button class="btn" data-close>Fermer</button></div>`);
+			<div class="modal-actions"><button class="btn" data-close>${t('btn.close')}</button></div>`);
 	};
 
 	const picked = () => [...modal.querySelectorAll('.c-pick')]
@@ -1217,12 +1209,12 @@ function confirmationsModal(account) {
 
 	const respond = async (accept) => {
 		const sel = picked();
-		if (!sel.length) return modalError(modal, 'Sélectionne au moins une confirmation.');
+		if (!sel.length) return modalError(modal, t('conf.selectOne'));
 		modal.querySelectorAll('button').forEach((b) => { b.disabled = true; });
 		try {
 			const res = await call(window.api.conf.respond(sel, accept));
 			items = res.confirmations;
-			toast(`${res.done} confirmation(s) ${accept ? 'acceptée(s)' : 'refusée(s)'}`, 'ok');
+			toast(`${res.done} ${t('conf.done')} ${accept ? t('conf.accepted') : t('conf.refused')}`, 'ok');
 			draw();
 		} catch (err) {
 			modal.querySelectorAll('button').forEach((b) => { b.disabled = false; });
@@ -1252,15 +1244,15 @@ function confirmationsModal(account) {
 
 	function draw() {
 		if (!items.length) {
-			render(`<h2>Confirmations</h2><p class="modal-sub">${sub}</p>
-				<p class="field hint">Aucune confirmation en attente.</p>
+			render(`<h2>${t('conf.title')}</h2><p class="modal-sub">${sub}</p>
+				<p class="field hint">${t('conf.none')}</p>
 				<div class="modal-actions">
-					<button class="btn" id="c-refresh">Rafraîchir</button>
-					<button class="btn btn-primary" data-close>Fermer</button>
+					<button class="btn" id="c-refresh">${t('btn.refresh')}</button>
+					<button class="btn btn-primary" data-close>${t('btn.close')}</button>
 				</div>`);
 			return wire();
 		}
-		render(`<h2>Confirmations</h2><p class="modal-sub">${sub} — ${items.length} en attente</p>
+		render(`<h2>${t('conf.title')}</h2><p class="modal-sub">${sub} — ${t('conf.pending', { n: items.length })}</p>
 			<div class="conf-list">${items.map((c, i) => `
 				<div class="conf-item">
 					<label class="checkbox" style="margin:0;align-items:flex-start">
@@ -1274,12 +1266,12 @@ function confirmationsModal(account) {
 						</span>
 					</label>
 				</div>`).join('')}</div>
-			<p class="field hint">Refuser <strong>annule définitivement</strong> l'échange ou la mise en vente côté Steam.</p>
+			<p class="field hint">${t('conf.refuseHint')}</p>
 			<div class="modal-actions">
-				<button class="btn" id="c-refresh">Rafraîchir</button>
-				<button class="btn btn-danger-ghost" id="c-deny">Refuser</button>
-				<button class="btn btn-primary" id="c-accept">Confirmer</button>
-				<button class="btn" data-close>Fermer</button>
+				<button class="btn" id="c-refresh">${t('btn.refresh')}</button>
+				<button class="btn btn-danger-ghost" id="c-deny">${t('conf.refuse')}</button>
+				<button class="btn btn-primary" id="c-accept">${t('conf.accept')}</button>
+				<button class="btn" data-close>${t('btn.close')}</button>
 			</div>`);
 		wire();
 	}
@@ -1298,24 +1290,23 @@ function confirmationsModal(account) {
 /** Export de tous les comptes au format SDA (manifest.json + .maFile). */
 function exportModal() {
 	const modal = openModal(`
-		<h2>Exporter au format SDA</h2>
-		<p class="modal-sub">Écrit un dossier relisible par Steam Desktop Authenticator.</p>
+		<h2>${t('exp.title')}</h2>
+		<p class="modal-sub">${t('exp.sub')}</p>
 		<div class="field">
-			<label>Dossier de destination</label>
+			<label>${t('exp.destFolder')}</label>
 			<div style="display:flex;gap:6px">
 				<input id="e-dir" readonly style="flex:1" placeholder="…" />
-				<button class="btn" id="e-pick" type="button">Parcourir</button>
+				<button class="btn" id="e-pick" type="button">${t('imp.browse')}</button>
 			</div>
 		</div>
 		<div class="field">
-			<label>Mot de passe SDA (vide = fichiers en clair)</label>
+			<label>${t('exp.password')}</label>
 			<input id="e-pwd" type="password" autocomplete="off" />
-			<span class="hint">Même chiffrement que SDA : PBKDF2-SHA1 50 000 itérations + AES-256-CBC.
-			Sans mot de passe, les <code>shared_secret</code> sont lisibles tels quels dans les fichiers.</span>
+			<span class="hint">${t('exp.encryption')} ${t('exp.plaintextWarn')}</span>
 		</div>
 		<div class="modal-actions">
-			<button class="btn" data-close>Annuler</button>
-			<button class="btn btn-primary" id="e-go" disabled>Exporter</button>
+			<button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-primary" id="e-go" disabled>${t('exp.submit')}</button>
 		</div>`);
 	const dir = modal.querySelector('#e-dir');
 	const go = modal.querySelector('#e-go');
@@ -1330,13 +1321,13 @@ function exportModal() {
 		try {
 			const r = await call(window.api.sda.export(dir.value, modal.querySelector('#e-pwd').value));
 			const skipped = r.skipped.length
-				? `<p class="field hint">Écartés : ${r.skipped.map((x) => `${esc(x.username)} (${esc(x.reason)})`).join(', ')}</p>`
+				? `<p class="field hint">${t('exp.skipped')} : ${r.skipped.map((x) => `${esc(x.username)} (${esc(x.reason)})`).join(', ')}</p>`
 				: '';
-			modal.innerHTML = `<h2>Export terminé</h2>
-				<p class="modal-ok">${r.written.length} compte(s) écrit(s)${r.encrypted ? ', chiffrés' : ' EN CLAIR'}.</p>
+			modal.innerHTML = `<h2>${t('exp.done')}</h2>
+				<p class="modal-ok">${r.written.length} ${t('exp.written')}${r.encrypted ? `, ${t('exp.encrypted')}` : ` ${t('exp.plaintext')}`}.</p>
 				<p class="field hint" style="word-break:break-all"><code>${esc(r.dir)}</code></p>
 				${skipped}
-				<div class="modal-actions"><button class="btn btn-primary" data-close>Fermer</button></div>`;
+				<div class="modal-actions"><button class="btn btn-primary" data-close>${t('btn.close')}</button></div>`;
 		} catch (err) {
 			go.disabled = false;
 			modalError(modal, err.message);

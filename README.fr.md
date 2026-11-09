@@ -45,7 +45,14 @@ référence : une clé absente du français retombe sur la chaîne anglaise plut
 que d'afficher un vide, et une clé inconnue s'affiche sous son propre nom —
 le trou se voit au lieu de passer inaperçu.
 
-Les messages écrits par le moteur (processus principal) restent en français.
+Toute l'interface y passe — modales comprises : ajout d'un compte,
+modification, import/export SDA, sauvegarde du coffre, confirmations mobiles
+et le déroulé complet de l'authenticator.
+
+Les messages écrits par le moteur (processus principal) restent en français. Le
+renderer ne se base jamais sur leur formulation : quand il doit reconnaître un
+échec précis, il lit un `kind` transmis à côté du message, pour qu'une future
+traduction du moteur ne casse pas l'interface en silence.
 
 ## Mettre ses comptes dedans
 

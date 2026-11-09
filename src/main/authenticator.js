@@ -631,6 +631,7 @@ class AuthenticatorSession {
 					+ "le numéro sert déjà d'authenticator à trop de comptes, ou il a été vérifié "
 					+ 'trop récemment.' + trace;
 				err.phone = phone;
+				err.kind = 'phone';
 				throw err;
 			}
 			if (phone && !phone.verified) {
@@ -640,6 +641,7 @@ class AuthenticatorSession {
 					: 'Aucun numéro de téléphone vérifié sur ce compte — Steam exige un numéro '
 						+ 'pour créer un authenticator.') + trace;
 				err.phone = phone;
+				err.kind = 'phone';
 			} else if (phone && phone.verified) {
 				// Toutes les préconditions que Steam expose sont satisfaites et il
 				// refuse quand même : on le dit, plutôt que de proposer des motifs

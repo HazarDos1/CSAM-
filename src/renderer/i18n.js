@@ -20,7 +20,6 @@ const STORAGE_KEY = 'csam.lang';
 
 const EN = {
 	// ── fenêtre, cadres, barre d'état ──
-	'app.title': 'CS2 Account Manager',
 	'app.accounts': 'Accounts',
 	'app.options': 'Options',
 	'app.information': 'Information',
@@ -165,8 +164,8 @@ const EN = {
 	'auth.revocationAck': 'I wrote the revocation code down',
 	'auth.continue': 'Continue',
 	'auth.smsTitle': 'Confirmation code',
-	'auth.smsSent': 'Steam sent an SMS',
-	'auth.smsSentTo': 'to the number ending in',
+	'auth.smsSent': 'Steam sent an SMS.',
+	'auth.smsSentTo': 'Steam sent an SMS to the number ending in <strong>{hint}</strong>.',
 	'auth.smsLabel': 'Code received by SMS',
 	'auth.activate': 'Activate',
 	'auth.activating': 'Activating…',
@@ -225,11 +224,16 @@ const EN = {
 	'conf.accepted': 'accepted',
 	'conf.refused': 'refused',
 	'conf.done': 'confirmation(s)',
+	'conf.pending': '{n} pending',
 
 	// ── export SDA ──
 	'exp.title': 'Export SDA',
 	'exp.sub': 'Writes a folder that Steam Desktop Authenticator can read.',
 	'exp.encryption': 'Same encryption as SDA: PBKDF2-SHA1 50 000 iterations + AES-256-CBC.',
+	'exp.destFolder': 'Destination folder',
+	'exp.password': 'SDA password (empty = plaintext files)',
+	'exp.plaintextWarn': 'Without a password the <code>shared_secret</code> values are readable as-is in the files.',
+	'exp.submit': 'Export',
 	'exp.done': 'Export finished',
 	'exp.written': 'account(s) written',
 	'exp.encrypted': 'encrypted',
@@ -363,7 +367,6 @@ const EN = {
 };
 
 const FR = {
-	'app.title': 'CS2 Account Manager',
 	'app.accounts': 'Comptes',
 	'app.options': 'Options',
 	'app.information': 'Informations',
@@ -502,8 +505,8 @@ const FR = {
 	'auth.revocationAck': 'J\'ai noté le code de révocation',
 	'auth.continue': 'Continuer',
 	'auth.smsTitle': 'Code de confirmation',
-	'auth.smsSent': 'Steam a envoyé un SMS',
-	'auth.smsSentTo': 'au numéro se terminant par',
+	'auth.smsSent': 'Steam a envoyé un SMS.',
+	'auth.smsSentTo': 'Steam a envoyé un SMS au numéro se terminant par <strong>{hint}</strong>.',
 	'auth.smsLabel': 'Code reçu par SMS',
 	'auth.activate': 'Activer',
 	'auth.activating': 'Activation…',
@@ -560,10 +563,15 @@ const FR = {
 	'conf.accepted': 'acceptée(s)',
 	'conf.refused': 'refusée(s)',
 	'conf.done': 'confirmation(s)',
+	'conf.pending': '{n} en attente',
 
 	'exp.title': 'Export SDA',
 	'exp.sub': 'Écrit un dossier relisible par Steam Desktop Authenticator.',
 	'exp.encryption': 'Même chiffrement que SDA : PBKDF2-SHA1 50 000 itérations + AES-256-CBC.',
+	'exp.destFolder': 'Dossier de destination',
+	'exp.password': 'Mot de passe SDA (vide = fichiers en clair)',
+	'exp.plaintextWarn': 'Sans mot de passe, les <code>shared_secret</code> sont lisibles tels quels dans les fichiers.',
+	'exp.submit': 'Exporter',
 	'exp.done': 'Export terminé',
 	'exp.written': 'compte(s) écrit(s)',
 	'exp.encrypted': 'chiffrés',
