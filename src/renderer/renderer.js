@@ -154,21 +154,28 @@ function visibleAccounts() {
 function categoryBadge(a) {
 	const cat = liveCategory(a);
 	switch (cat) {
-		case 'prime': return badge('prime', 'Prime');
-		case 'nonprime': return badge('nonprime', 'Non-prime');
-		case 'cooldown': return badge('cooldown', `Cooldown ${fmtDuration(cooldownLeft(a))}`);
-		case 'banned': return badge('banned', a.cache && a.cache.vacBanned ? 'VAC' : 'Banni');
+		case 'prime': return badge('prime', t('cat.prime'));
+		case 'nonprime': return badge('nonprime', t('cat.nonprime'));
+		case 'cooldown': return badge('cooldown', `${t('cat.cooldown')} ${fmtDuration(cooldownLeft(a))}`);
+		case 'banned': return badge('banned', a.cache && a.cache.vacBanned ? 'VAC' : t('cat.banned'));
 		case 'expired': return badge('expired', t('cat.expired'), a.lastError && a.lastError.message);
-		case 'error': return badge('error', 'Erreur', a.lastError && a.lastError.message);
+		case 'error': return badge('error', t('cat.error'), a.lastError && a.lastError.message);
 		default: return badge('unknown', t('cat.notScanned'));
 	}
 }
 
-/** Libellé court de l'état, affiché sous le pseudo dans le cadre Information. */
-const STATE_LABELS = {
-	prime: 'Prime', nonprime: 'Non prime', cooldown: 'Cooldown',
-	banned: 'Banni', expired: 'Identifiants à revoir', error: 'Erreur de scan', unknown: 'Jamais scanné'
-};
+/**
+ * Libellé court de l'état, affiché sous le pseudo dans le cadre Information.
+ * Une fonction, pas une table : `t()` doit être évalué au rendu, sinon la langue
+ * reste figée sur celle du chargement du module et la bascule n'a plus d'effet.
+ */
+function stateLabel(cat) {
+	const KEYS = {
+		prime: 'cat.prime', nonprime: 'cat.nonprime', cooldown: 'cat.cooldown',
+		banned: 'state.banned', expired: 'state.expired', error: 'state.error', unknown: 'state.unknown'
+	};
+	return KEYS[cat] ? t(KEYS[cat]) : cat;
+}
 
 function avatarHtml(a, big) {
 	const url = a.cache && a.cache.avatar;
@@ -187,14 +194,14 @@ function avatarHtml(a, big) {
  * les autres groupes sont des états qui empêchent de jouer.
  */
 const TREE_GROUPS = [
-	{ key: 'premier-ready', label: 'Premier ready', children: ['prime', 'nonprime'] },
-	{ key: 'cooldown', label: 'Cooldown' },
-	{ key: 'banned', label: 'Banned' },
-	{ key: 'expired', label: 'Expired' },
-	{ key: 'error', label: 'Erreur' },
-	{ key: 'unknown', label: 'Non scanné' }
+	{ key: 'premier-ready', labelKey: 'cat.premierReady', children: ['prime', 'nonprime'] },
+	{ key: 'cooldown', labelKey: 'cat.cooldown' },
+	{ key: 'banned', labelKey: 'cat.banned' },
+	{ key: 'expired', labelKey: 'cat.expired' },
+	{ key: 'error', labelKey: 'cat.error' },
+	{ key: 'unknown', labelKey: 'cat.unknown' }
 ];
-const CHILD_LABELS = { prime: 'Prime', nonprime: 'Non prime' };
+const CHILD_LABEL_KEYS = { prime: 'cat.prime', nonprime: 'cat.nonprime' };
 
 function isCollapsed(key) {
 	if (!state.collapsed) state.collapsed = new Set();
@@ -243,7 +250,7 @@ function renderList() {
 
 	if (!list.length) {
 		$('#account-list').innerHTML = `<div class="tree-empty">${
-			state.accounts.length ? 'Aucun compte ne correspond.' : 'Aucun compte. Importe tes .maFile ou ajoute un compte.'
+			state.accounts.length ? t('tree.noMatch') : t('tree.empty')
 		}</div>`;
 		return;
 	}
@@ -257,13 +264,13 @@ function renderList() {
 			html += `<div class="tree-group">
 				<div class="tree-head" data-group="${g.key}">
 					<span class="tree-caret ${collapsed ? '' : 'open'}"></span>
-					<span>${esc(g.label)}</span>
+					<span>${esc(t(g.labelKey))}</span>
 					<span class="tree-count">${total}</span>
 				</div>
-				${collapsed ? '' : g.children.map((c) => groupHtml(c, CHILD_LABELS[c], byCat[c] || [], true)).join('')}
+				${collapsed ? '' : g.children.map((c) => groupHtml(c, t(CHILD_LABEL_KEYS[c]), byCat[c] || [], true)).join('')}
 			</div>`;
 		} else {
-			html += groupHtml(g.key, g.label, byCat[g.key] || [], false);
+			html += groupHtml(g.key, t(g.labelKey), byCat[g.key] || [], false);
 		}
 	}
 	$('#account-list').innerHTML = html;
@@ -580,7 +587,7 @@ function renderDetail() {
 			${avatarHtml(a, true)}
 			<div class="info-id">
 				<p class="info-name">${esc(displayName(a))}</p>
-				<div class="info-state s-${cat}">${c && c.inMatch ? 'En partie' : esc(STATE_LABELS[cat] || cat)}</div>
+				<div class="info-state s-${cat}">${c && c.inMatch ? esc(t('state.inMatch')) : esc(stateLabel(cat))}</div>
 				<div class="info-line copyable" data-copy="${esc(a.username)}">${esc(a.username)}</div>
 				<div class="info-line copyable" data-copy="${esc(steamId)}">${esc(steamId || '—')}</div>
 				<div class="info-line">${accountId ? `[U:1:${accountId}]` : ''}</div>
@@ -703,9 +710,11 @@ function renderStatus() {
 	$('#btn-scan-all').disabled = q.busy;
 	$('#btn-scan-stale').disabled = q.busy;
 	const parts = [];
-	if (q.current) parts.push('1 en cours');
-	if (q.queued.length) parts.push(`${q.queued.length} en attente`);
-	if (q.pausedUntil > Date.now()) parts.push(`pause (${q.pauseReason}) ${fmtDuration(q.pausedUntil - Date.now())}`);
+	if (q.current) parts.push(t('status.running'));
+	if (q.queued.length) parts.push(t('status.queued', { n: q.queued.length }));
+	if (q.pausedUntil > Date.now()) {
+		parts.push(t('status.paused', { reason: q.pauseReason, time: fmtDuration(q.pausedUntil - Date.now()) }));
+	}
 	$('#status-queue').textContent = parts.join(' · ');
 	if (!q.busy && !parts.length) $('#status-text').textContent = t('app.ready');
 }
@@ -1688,7 +1697,7 @@ function bindEvents() {
 	});
 
 	$('#btn-remove-all').addEventListener('click', () => {
-		if (!state.accounts.length) return toast('Aucun compte');
+		if (!state.accounts.length) return toast(t('toast.noAccounts'));
 		confirmRemoveAllModal();
 	});
 

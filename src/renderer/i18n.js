@@ -59,6 +59,12 @@ const EN = {
 	'state.error': 'Scan error',
 	'state.unknown': 'Never scanned',
 	'state.inMatch': 'In a match',
+	'tree.empty': 'No accounts yet. Import your .maFile files or add one.',
+	'tree.noMatch': 'No account matches.',
+	'status.running': '1 running',
+	'status.queued': '{n} queued',
+	'status.paused': 'paused ({reason}) {time}',
+	'toast.noAccounts': 'No accounts',
 
 	// ── liste et boutons ──
 	'btn.add': 'Add',
@@ -381,6 +387,12 @@ const FR = {
 	'state.error': 'Erreur de scan',
 	'state.unknown': 'Jamais scanné',
 	'state.inMatch': 'En partie',
+	'tree.empty': 'Aucun compte. Importe tes .maFile ou ajoute un compte.',
+	'tree.noMatch': 'Aucun compte ne correspond.',
+	'status.running': '1 en cours',
+	'status.queued': '{n} en attente',
+	'status.paused': 'pause ({reason}) {time}',
+	'toast.noAccounts': 'Aucun compte',
 
 	'btn.add': 'Ajouter',
 	'btn.import': 'Importer',
