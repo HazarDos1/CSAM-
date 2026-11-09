@@ -466,7 +466,13 @@ function compStatus(c) {
 			? `Premier · ${main.rankId.toLocaleString('fr-FR')}`
 			: `${main.rankTypeLabel} · ${state.skillGroups[main.rankId] || 'groupe ' + main.rankId}`;
 	}
-	return `Non classé (${main.wins}/10)`;
+	// Au-delà de 10 victoires, « X/10 » n'a plus de sens : les placements sont
+	// faits et Steam renvoie quand même rank_id = 0. Ça arrive après une
+	// réinitialisation de saison ou l'expiration d'un classement. On montre donc
+	// le fait brut plutôt qu'une progression qui n'en est plus une.
+	return main.wins >= 10
+		? `Non classé — ${main.wins} victoires, aucun rang renvoyé par Steam`
+		: `Non classé (${main.wins}/10 placements)`;
 }
 
 function rankingsHtml(c) {
