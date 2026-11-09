@@ -1805,9 +1805,16 @@ function bindEvents() {
 		if (p.accountId === state.selectedId) renderDetail();
 		renderList();
 	});
-	window.api.on('queue', (q) => { state.queue = q; renderList(); renderStatus(); });
+	// Le detail porte le bandeau de scan et le bouton « Scanner » : sans
+	// renderDetail ici, la liste et la barre d'etat se nettoyaient mais le
+	// bandeau restait affiche indefiniment.
+	window.api.on('queue', (q) => { state.queue = q; renderList(); renderDetail(); renderStatus(); });
 	window.api.on('result', (r) => {
 		delete state.progress[r.accountId];
+		// Le moteur emet 'result' AVANT le 'queue' qui libere le compte. Attendre
+		// ce dernier ferait clignoter le bandeau sur « starting… », puisque la
+		// progression vient d'etre effacee : ce compte-ci a fini, par definition.
+		if (state.queue.current === r.accountId) state.queue = { ...state.queue, current: null };
 		if (r.account) replaceAccount(r.account);
 		renderAll();
 		const name = r.account ? displayName(r.account) : '';
