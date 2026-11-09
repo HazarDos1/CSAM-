@@ -1,6 +1,6 @@
 {
   "name": "cs2-account-manager",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Gestionnaire de comptes CS2 : état Prime/cooldown/ban via le Game Coordinator",
   "main": "src/main/main.js",
