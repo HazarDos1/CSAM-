@@ -1355,28 +1355,23 @@ function exportModal() {
  */
 function addAccountModal() {
 	const modal = openModal(`
-		<h2>Ajouter un compte</h2>
-		<p class="modal-sub">Le shared_secret vient de ton .maFile ; sinon coche la case pour que l'app crée l'authenticator.</p>
-		<div class="field"><label>Nom de compte Steam (login)</label><input id="f-username" autocomplete="off" /></div>
-		<div class="field"><label>Mot de passe Steam</label><input id="f-password" type="password" autocomplete="off" /></div>
+		<h2>${t('add.title')}</h2>
+		<p class="modal-sub">${t('add.sub')}</p>
+		<div class="field"><label>${t('add.username')}</label><input id="f-username" autocomplete="off" /></div>
+		<div class="field"><label>${t('add.password')}</label><input id="f-password" type="password" autocomplete="off" /></div>
 
 		<label class="checkbox"><input type="checkbox" id="f-auto" />
-			Créer l'authenticator Steam dans la foulée</label>
-		<p class="field hint" id="f-auto-hint" hidden>
-			Enchaîne connexion → <code>AddAuthenticator</code> → code de révocation → code SMS →
-			<code>FinalizeAddAuthenticator</code>. Le compte doit avoir un <strong>numéro de téléphone
-			rattaché et vérifié</strong> côté Steam, sinon Steam refuse. S'il a déjà un authenticator,
-			l'app préviendra avant toute action.
-		</p>
+			${t('add.auto')}</label>
+		<p class="field hint" id="f-auto-hint" hidden>${t('add.autoHint')}</p>
 
 		<div class="field" id="f-secret-field">
 			<label>shared_secret (base64)</label>
 			<input id="f-secret" autocomplete="off" spellcheck="false" />
 		</div>
-		<div class="field"><label>Libellé (optionnel)</label><input id="f-label" autocomplete="off" /></div>
+		<div class="field"><label>${t('add.label')}</label><input id="f-label" autocomplete="off" /></div>
 		<div class="modal-actions">
-			<button class="btn" data-close>Annuler</button>
-			<button class="btn btn-primary" id="f-submit">Ajouter</button>
+			<button class="btn" data-close>${t('btn.cancel')}</button>
+			<button class="btn btn-primary" id="f-submit">${t('add.submit')}</button>
 		</div>
 	`);
 
@@ -1390,16 +1385,16 @@ function addAccountModal() {
 	auto.addEventListener('change', () => {
 		secretField.hidden = auto.checked;
 		hint.hidden = !auto.checked;
-		submit.textContent = auto.checked ? 'Ajouter et créer l\'authenticator' : 'Ajouter';
+		submit.textContent = auto.checked ? t('add.submitAuto') : t('add.submit');
 		if (auto.checked) modal.querySelector('#f-secret').value = '';
 	});
 
 	submit.addEventListener('click', async () => {
 		const username = modal.querySelector('#f-username').value.trim();
 		const password = modal.querySelector('#f-password').value;
-		if (!username) return modalError(modal, 'Le nom de compte est obligatoire.');
+		if (!username) return modalError(modal, t('add.needUsername'));
 		if (auto.checked && !password) {
-			return modalError(modal, 'Le mot de passe est nécessaire pour créer l\'authenticator.');
+			return modalError(modal, t('add.needPassword'));
 		}
 		submit.disabled = true;
 		try {
@@ -1430,16 +1425,16 @@ function addAccountModal() {
 
 function editAccountModal(a) {
 	const modal = openModal(`
-		<h2>Modifier ${esc(displayName(a))}</h2>
-		<p class="modal-sub">Laisse un champ vide pour ne pas le changer.</p>
-		<div class="field"><label>Libellé</label><input id="f-label" value="${esc(a.label)}" autocomplete="off" /></div>
-		<div class="field"><label>Mot de passe Steam ${a.hasPassword ? '(déjà renseigné)' : '(manquant)'}</label>
-			<div style="display:flex;gap:6px"><input id="f-password" type="password" autocomplete="off" style="flex:1" /><button class="btn btn-sm" id="f-reveal-pw" type="button">Voir l'actuel</button></div></div>
-		<div class="field"><label>shared_secret ${a.hasSharedSecret ? '(déjà renseigné)' : '(manquant)'}</label>
-			<div style="display:flex;gap:6px"><input id="f-secret" autocomplete="off" spellcheck="false" style="flex:1" /><button class="btn btn-sm" id="f-reveal-secret" type="button">Voir l'actuel</button></div></div>
+		<h2>${t('edit.title', { name: esc(displayName(a)) })}</h2>
+		<p class="modal-sub">${t('edit.sub')}</p>
+		<div class="field"><label>${t('add.label')}</label><input id="f-label" value="${esc(a.label)}" autocomplete="off" /></div>
+		<div class="field"><label>${t('add.password')} ${a.hasPassword ? t('edit.filled') : t('edit.missing')}</label>
+			<div style="display:flex;gap:6px"><input id="f-password" type="password" autocomplete="off" style="flex:1" /><button class="btn btn-sm" id="f-reveal-pw" type="button">${t('edit.reveal')}</button></div></div>
+		<div class="field"><label>shared_secret ${a.hasSharedSecret ? t('edit.filled') : t('edit.missing')}</label>
+			<div style="display:flex;gap:6px"><input id="f-secret" autocomplete="off" spellcheck="false" style="flex:1" /><button class="btn btn-sm" id="f-reveal-secret" type="button">${t('edit.reveal')}</button></div></div>
 		<div class="field"><label>SteamID64</label><input id="f-steamid" value="${esc(a.steamId)}" autocomplete="off" /></div>
-		<div class="checkbox"><input type="checkbox" id="f-forget" ${a.hasRefreshToken ? '' : 'disabled'} /><label for="f-forget">Oublier le refresh token (forcer un login par mot de passe au prochain scan)</label></div>
-		<div class="modal-actions"><button class="btn" data-close>Annuler</button><button class="btn btn-primary" id="f-submit">Enregistrer</button></div>
+		<div class="checkbox"><input type="checkbox" id="f-forget" ${a.hasRefreshToken ? '' : 'disabled'} /><label for="f-forget">${t('edit.forgetToken')}</label></div>
+		<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button><button class="btn btn-primary" id="f-submit">${t('btn.save')}</button></div>
 	`);
 	modal.querySelector('#f-reveal-pw').addEventListener('click', async () => {
 		const pw = modal.querySelector('#f-password');
@@ -1473,9 +1468,9 @@ function editAccountModal(a) {
 
 function confirmRemoveModal(a) {
 	const modal = openModal(`
-		<h2>Supprimer ${esc(displayName(a))} ?</h2>
-		<p class="modal-sub">Le compte, son mot de passe, son shared_secret et son refresh token sont retirés du coffre. Le .maFile d'origine n'est pas touché.</p>
-		<div class="modal-actions"><button class="btn" data-close>Annuler</button><button class="btn btn-danger-ghost" id="f-submit">Supprimer</button></div>
+		<h2>${t('del.title', { name: esc(displayName(a)) })}</h2>
+		<p class="modal-sub">${t('del.sub')}</p>
+		<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button><button class="btn btn-danger-ghost" id="f-submit">${t('del.confirm')}</button></div>
 	`);
 	modal.querySelector('#f-submit').addEventListener('click', async () => {
 		await call(window.api.accounts.remove(a.id));
@@ -1492,18 +1487,17 @@ function confirmRemoveModal(a) {
 function confirmRemoveAllModal() {
 	const n = state.accounts.length;
 	const modal = openModal(`
-		<h2>Supprimer les ${n} comptes ?</h2>
-		<p class="modal-sub">Mots de passe, shared_secret, codes de révocation et refresh tokens partent avec. Rien n'est récupérable ensuite.</p>
+		<h2>${t('delAll.title', { n })}</h2>
+		<p class="modal-sub">${t('delAll.sub')}</p>
 		<div class="alert danger" style="margin-top:0">
-			<div class="alert-sub">Si un compte n'a son <code>shared_secret</code> que dans ce coffre, tu perds l'accès à son Steam Guard.
-			Les <code>.maFile</code> d'origine, eux, ne sont pas touchés.</div>
+			<div class="alert-sub">${t('delAll.warn')}</div>
 		</div>
 		<div class="field" style="margin-top:12px">
-			<label>Tape <strong>${n}</strong> pour confirmer</label>
+			<label>${t('delAll.typeToConfirm', { n })}</label>
 			<input id="f-count" autocomplete="off" inputmode="numeric" />
 		</div>
-		<div class="modal-actions"><button class="btn" data-close>Annuler</button>
-		<button class="btn btn-danger-ghost" id="f-submit" disabled>Tout supprimer</button></div>
+		<div class="modal-actions"><button class="btn" data-close>${t('btn.cancel')}</button>
+		<button class="btn btn-danger-ghost" id="f-submit" disabled>${t('delAll.confirm')}</button></div>
 	`);
 	const submit = modal.querySelector('#f-submit');
 	modal.querySelector('#f-count').addEventListener('input', (e) => {
@@ -1515,22 +1509,22 @@ function confirmRemoveAllModal() {
 		state.selectedId = null;
 		closeModal();
 		await reloadAccounts();
-		toast(`${n} compte(s) supprimé(s)`);
+		toast(`${n} ${t('delAll.deleted')}`);
 	});
 }
 
 function importModal() {
 	const modal = openModal(`
-		<h2>Importer depuis SDA</h2>
-		<p class="modal-sub">Choisis le dossier <code>maFiles</code> (celui qui contient manifest.json). Les comptes déjà présents sont fusionnés, pas dupliqués.</p>
-		<div class="field"><label>Dossier maFiles</label>
-			<div style="display:flex;gap:6px"><input id="f-dir" readonly style="flex:1" placeholder="…" /><button class="btn" id="f-pick" type="button">Parcourir</button></div>
+		<h2>${t('imp.title')}</h2>
+		<p class="modal-sub">${t('imp.sub')}</p>
+		<div class="field"><label>${t('imp.folder')}</label>
+			<div style="display:flex;gap:6px"><input id="f-dir" readonly style="flex:1" placeholder="…" /><button class="btn" id="f-pick" type="button">${t('imp.browse')}</button></div>
 			<div class="hint" id="f-info"></div></div>
-		<div class="field" id="f-pw-field" hidden><label>Mot de passe SDA</label><input id="f-sda-password" type="password" autocomplete="off" /><div class="hint">Utilisé uniquement pour déchiffrer les .maFile en mémoire ; il n'est pas conservé.</div></div>
+		<div class="field" id="f-pw-field" hidden><label>${t('imp.password')}</label><input id="f-sda-password" type="password" autocomplete="off" /><div class="hint">${t('imp.passwordHint')}</div></div>
 		<div class="modal-actions">
-			<button class="btn" id="f-json" type="button" title="Reprendre un accounts.json de test">Importer un JSON…</button>
+			<button class="btn" id="f-json" type="button" title="${t('imp.importJsonTitle')}">${t('imp.importJson')}</button>
 			<span style="flex:1"></span>
-			<button class="btn" data-close>Annuler</button><button class="btn btn-primary" id="f-submit" disabled>Importer</button></div>
+			<button class="btn" data-close>${t('btn.cancel')}</button><button class="btn btn-primary" id="f-submit" disabled>${t('imp.submit')}</button></div>
 	`);
 	let dir = null;
 	let encrypted = false;
@@ -1541,7 +1535,7 @@ function importModal() {
 		try {
 			const info = await call(window.api.sda.inspect(dir));
 			encrypted = info.encrypted;
-			modal.querySelector('#f-info').textContent = `${info.count} fichier(s) · ${encrypted ? 'chiffrés (mot de passe SDA requis)' : 'non chiffrés'}`;
+			modal.querySelector('#f-info').textContent = `${info.count} ${t('imp.files')} · ${encrypted ? t('imp.encrypted') : t('imp.plain')}`;
 			modal.querySelector('#f-pw-field').hidden = !encrypted;
 			modal.querySelector('#f-submit').disabled = false;
 			if (encrypted) modal.querySelector('#f-sda-password').focus();
@@ -1556,7 +1550,7 @@ function importModal() {
 			closeModal();
 			await reloadAccounts();
 			const missing = imported.filter((a) => !a.hasPassword).length;
-			toast(`${imported.length} compte(s) importé(s)${failures.length ? `, ${failures.length} échec(s)` : ''}${missing ? ` — ${missing} sans mot de passe Steam (à saisir via Modifier)` : ''}`, failures.length ? 'error' : 'ok');
+			toast(`${imported.length} ${t('imp.imported')}${failures.length ? `, ${failures.length} ${t('imp.failures')}` : ''}${missing ? ` — ${missing} ${t('imp.noPassword')}` : ''}`, failures.length ? 'error' : 'ok');
 		} catch (err) {
 			modalError(modal, err.message);
 		}
@@ -1580,17 +1574,16 @@ function importModal() {
 /** Proposition d'effacement du JSON source après import. */
 function shredOfferModal(file, count) {
 	const modal = openModal(`
-		<h2>Import terminé</h2>
-		<p class="modal-sub">${count} compte(s) ajouté(s) au coffre chiffré.</p>
+		<h2>${t('imp.done')}</h2>
+		<p class="modal-sub">${count} ${t('imp.addedToVault')}</p>
 		<div class="cooldown-box permanent">
-			<div style="font-weight:600;color:var(--danger)">Le fichier source est en clair</div>
-			<div class="cooldown-reason">Mots de passe Steam et <code>shared_secret</code> y sont lisibles
-			par n'importe quel programme ou sauvegarde. Le coffre chiffré les remplace désormais.</div>
+			<div style="font-weight:600;color:var(--danger)">${t('imp.plainWarn')}</div>
+			<div class="cooldown-reason">${t('imp.plainWarnSub')}</div>
 		</div>
 		<p class="field hint" style="word-break:break-all"><code>${esc(file)}</code></p>
 		<div class="modal-actions">
-			<button class="btn" data-close>Garder le fichier</button>
-			<button class="btn btn-danger-ghost" id="f-shred">Écraser et supprimer</button>
+			<button class="btn" data-close>${t('imp.keepFile')}</button>
+			<button class="btn btn-danger-ghost" id="f-shred">${t('imp.shred')}</button>
 		</div>`);
 	modal.querySelector('#f-shred').addEventListener('click', async () => {
 		try {
