@@ -216,6 +216,39 @@ function accountIdOf(steamId) {
 	}
 }
 
+/**
+ * Désactive le sélecteur de comptes de Steam (« Qui joue ? »).
+ *
+ * Tant que `AlwaysShowUserChooser` vaut 1, Steam impose cet écran au démarrage
+ * **et réécrit `loginusers.vdf` derrière nous**, en remettant `AutoLogin=0` sur
+ * le compte qu'on venait de désigner. Poser AutoLogin sans toucher à ce réglage
+ * ne sert donc à rien : Steam annule le travail au lancement suivant.
+ *
+ * Le fichier porte aussi les jetons de session de Steam. On ne le ré-sérialise
+ * surtout pas : on remplace la seule valeur visée et on réécrit les octets tels
+ * quels (`latin1` fait l'aller-retour sans réinterpréter l'encodage), pour ne
+ * pas risquer d'abîmer la configuration de l'utilisateur.
+ *
+ * @returns {{found: boolean, changed: boolean}}
+ */
+function setUserChooser(steamExe, show) {
+	const file = path.join(path.dirname(steamExe), 'config', 'config.vdf');
+	if (!fs.existsSync(file)) return { found: false, changed: false };
+
+	const texte = fs.readFileSync(file, 'latin1');
+	const ligne = /^([ \t]*"AlwaysShowUserChooser"[ \t]+")([01])(")$/m;
+	const trouve = texte.match(ligne);
+	// Clé absente : Steam n'affiche pas le sélecteur par défaut, rien à faire.
+	if (!trouve) return { found: false, changed: false };
+
+	const voulu = show ? '1' : '0';
+	if (trouve[2] === voulu) return { found: true, changed: false };
+
+	fs.copyFileSync(file, `${file}.bak`);
+	fs.writeFileSync(file, texte.replace(ligne, `$1${voulu}$3`), 'latin1');
+	return { found: true, changed: true };
+}
+
 /** Horodatage du dernier login réussi que Steam note pour ce compte. */
 function loginTimestamp(steamExe, username) {
 	const needle = String(username).toLowerCase();
@@ -239,11 +272,14 @@ function loginTimestamp(steamExe, username) {
  *    chaque login réussi.
  */
 async function waitForLogin(timeoutMs = 30000, opts = {}) {
-	const { steamExe, username } = opts;
+	// `readUser` n'existe que pour pouvoir tester les deux signaux séparément :
+	// sinon l'issue dépend de l'état réel du Steam de la machine, et le test
+	// passe ou échoue selon qu'on est connecté ou non au moment où on le lance.
+	const { steamExe, username, readUser = activeUser } = opts;
 	const before = steamExe && username ? loginTimestamp(steamExe, username) : 0;
 	const deadline = Date.now() + timeoutMs;
 	for (;;) {
-		const user = await activeUser();
+		const user = await readUser();
 		if (user !== 0) return user;
 		if (before && loginTimestamp(steamExe, username) > before) return -1;
 		if (Date.now() >= deadline) return 0;
@@ -317,6 +353,13 @@ async function launch(account, opts = {}) {
 	// Le vdf a le dernier mot sur le registre : sans AutoLogin=1 ici, Steam
 	// s'arrête sur l'écran de connexion même avec AutoLoginUser posé.
 	const selected = selectAccount(steamExe, account.username);
+
+	// ...et le sélecteur de comptes a le dernier mot sur le vdf : tant qu'il est
+	// actif, Steam affiche « Qui joue ? » et remet AutoLogin à 0 derrière nous.
+	const chooser = setUserChooser(steamExe, false);
+	if (chooser.changed) {
+		notes.push('Sélecteur de comptes Steam (« Qui joue ? ») désactivé : il forçait l\'écran de connexion.');
+	}
 
 	if (mode === 'autologin') {
 		if (!selected) {
@@ -400,5 +443,5 @@ function findCs2ClientVersion(steamExe) {
 module.exports = {
 	launch, findSteam, hasRememberedSession, readRememberedUsers,
 	selectAccount, parseVdf, stringifyVdf, findCs2ClientVersion,
-	activeUser, accountIdOf, waitForLogin
+	activeUser, accountIdOf, waitForLogin, setUserChooser
 };

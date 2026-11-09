@@ -46,7 +46,7 @@ Start-Sleep -Milliseconds ([int]$env:CSAM_DELAY)
 $deadline = (Get-Date).AddMilliseconds([int]$env:CSAM_TIMEOUT)
 $win = $null
 while ((Get-Date) -lt $deadline) {
-  $win = Get-Process -Name steamwebhelper -ErrorAction SilentlyContinue |
+  $win = Get-Process -Name $env:CSAM_PROC -ErrorAction SilentlyContinue |
          Where-Object { $_.MainWindowTitle -ne '' -and $_.MainWindowHandle -ne 0 } |
          Select-Object -First 1
   if ($win) { break }
@@ -59,7 +59,7 @@ $fg = [Fg]::GetForegroundWindow()
 $procId = 0
 [void][Fg]::GetWindowThreadProcessId($fg, [ref]$procId)
 $owner = (Get-Process -Id $procId -ErrorAction SilentlyContinue).ProcessName
-if ($owner -ne 'steamwebhelper') { Write-Output "NOTFOCUSED:$owner"; exit 0 }
+if ($owner -ne $env:CSAM_PROC) { Write-Output "NOTFOCUSED:$owner"; exit 0 }
 foreach ($ch in $env:CSAM_CODE.ToCharArray()) {
   [System.Windows.Forms.SendKeys]::SendWait($ch)
   Start-Sleep -Milliseconds 90
@@ -81,6 +81,10 @@ function typeGuardCode(code, opts = {}) {
 	if (!CODE_SHAPE.test(String(code || ''))) {
 		return Promise.resolve({ sent: false, reason: 'code inattendu' });
 	}
+	// `processName` n'existe que pour les tests : sans lui, verifier le chemin
+	// d'echec exigerait qu'aucune fenetre Steam ne soit ouverte, et le test
+	// taperait pour de vrai dans le Steam de la machine quand il y en a une.
+	const processName = opts.processName || 'steamwebhelper';
 	const delayMs = opts.delayMs == null ? 5000 : opts.delayMs;
 	const timeoutMs = opts.timeoutMs == null ? 25000 : opts.timeoutMs;
 
@@ -91,7 +95,13 @@ function typeGuardCode(code, opts = {}) {
 			{
 				windowsHide: true,
 				timeout: delayMs + timeoutMs + 15000,
-				env: { ...process.env, CSAM_CODE: code, CSAM_DELAY: String(delayMs), CSAM_TIMEOUT: String(timeoutMs) }
+				env: {
+					...process.env,
+					CSAM_CODE: code,
+					CSAM_PROC: processName,
+					CSAM_DELAY: String(delayMs),
+					CSAM_TIMEOUT: String(timeoutMs)
+				}
 			},
 			(err, stdout) => {
 				const out = String(stdout || '').trim();

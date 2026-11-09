@@ -254,6 +254,19 @@ la liste, tandis que `AutoLogin` est celui qui décide si Steam se connecte tout
 seul. Écrire le premier sans le second laisse Steam en attente, et
 `AutoLoginUser` dans le registre n'y change rien — c'est le vdf qui tranche.
 
+Et un réglage de Steam prime à son tour sur le vdf. Tant que
+`AlwaysShowUserChooser` vaut `1` dans `config/config.vdf` (la bascule *Choisir
+le compte à utiliser à chaque lancement de Steam*, sur l'écran « Qui joue ? »),
+Steam impose le sélecteur de comptes **et réécrit `loginusers.vdf` derrière
+toi**, en remettant `AutoLogin` à `0` sur le compte qu'on venait de désigner.
+Poser `AutoLogin` sans désactiver cette bascule ne sert donc à rien : Steam
+annule le travail au lancement suivant. L'app la désactive pendant que Steam
+est fermé.
+
+`config.vdf` porte aussi les jetons de session de Steam : il n'est jamais
+ré-sérialisé, seule la valeur visée est remplacée et le reste des octets est
+réécrit tel quel.
+
 Le mode *Auto* (par défaut) tente la session mémorisée, puis **vérifie que
 Steam s'est bien connecté** en lisant `ActiveUser` sous
 `HKCU\Software\Valve\Steam\ActiveProcess`, qui vaut `0` tant que l'écran de

@@ -252,6 +252,18 @@ list, while `AutoLogin` is the one that decides whether Steam signs in by
 itself. Writing the first without the second leaves Steam waiting, and
 `AutoLoginUser` in the registry does not override it — the vdf wins.
 
+And one Steam setting overrides the vdf in turn. While
+`AlwaysShowUserChooser` is `1` in `config/config.vdf` (the *Choose the account
+to use each time Steam launches* toggle on the "Who's playing?" screen), Steam
+forces the account picker **and rewrites `loginusers.vdf` behind you**, putting
+`AutoLogin` back to `0` on the account you just selected. Setting `AutoLogin`
+without clearing that toggle therefore achieves nothing: Steam undoes the work
+on the next launch. The app clears it while Steam is shut down.
+
+`config.vdf` also holds Steam's session tokens, so it is never re-serialised:
+only that single value is replaced, and the remaining bytes are written back
+untouched.
+
 *Auto* mode (the default) tries the remembered session, then **checks that Steam
 actually signed in** by reading `ActiveUser` under
 `HKCU\Software\Valve\Steam\ActiveProcess`, which is `0` while the sign-in
