@@ -146,7 +146,7 @@ function visibleAccounts() {
 		// Les comptes sans cooldown passent après, d'où l'Infinity.
 		case 'cooldown': list.sort((x, y) => (cooldownLeft(x) || Infinity) - (cooldownLeft(y) || Infinity)); break;
 		case 'rating': list.sort((x, y) => ((y.cache && y.cache.premierRating) || 0) - ((x.cache && x.cache.premierRating) || 0)); break;
-		default: list.sort((x, y) => name(x).localeCompare(name(y), 'fr'));
+		default: list.sort((x, y) => name(x).localeCompare(name(y), t('locale')));
 	}
 	return list;
 }
@@ -205,6 +205,10 @@ const CHILD_LABEL_KEYS = { prime: 'cat.prime', nonprime: 'cat.nonprime' };
 
 function isCollapsed(key) {
 	if (!state.collapsed) state.collapsed = new Set();
+	// Pendant une recherche, rien n'est replie : sinon un compte trouve dans un
+	// groupe ferme reste invisible, le compteur du groupe monte tout seul, et la
+	// recherche a l'air cassee.
+	if (state.search.trim()) return false;
 	return state.collapsed.has(key);
 }
 
