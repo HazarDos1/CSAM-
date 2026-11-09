@@ -38,12 +38,12 @@ function fmtDate(ms) {
 }
 
 function fmtAgo(ms) {
-	if (!ms) return 'jamais';
+	if (!ms) return t('detail.never');
 	const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-	if (s < 60) return 'à l\'instant';
-	if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
-	if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
-	return `il y a ${Math.floor(s / 86400)} j`;
+	if (s < 60) return t('time.justNow');
+	if (s < 3600) return t('time.minAgo', { n: Math.floor(s / 60) });
+	if (s < 86400) return t('time.hourAgo', { n: Math.floor(s / 3600) });
+	return t('time.dayAgo', { n: Math.floor(s / 86400) });
 }
 
 function fmtDuration(ms) {
@@ -53,7 +53,7 @@ function fmtDuration(ms) {
 	const m = Math.floor((total % 3600) / 60);
 	const s = total % 60;
 	const pad = (n) => String(n).padStart(2, '0');
-	if (d > 0) return `${d} j ${pad(h)}:${pad(m)}:${pad(s)}`;
+	if (d > 0) return `${d} ${t('time.days')} ${pad(h)}:${pad(m)}:${pad(s)}`;
 	return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
@@ -158,9 +158,9 @@ function categoryBadge(a) {
 		case 'nonprime': return badge('nonprime', 'Non-prime');
 		case 'cooldown': return badge('cooldown', `Cooldown ${fmtDuration(cooldownLeft(a))}`);
 		case 'banned': return badge('banned', a.cache && a.cache.vacBanned ? 'VAC' : 'Banni');
-		case 'expired': return badge('expired', 'Expiré', a.lastError && a.lastError.message);
+		case 'expired': return badge('expired', t('cat.expired'), a.lastError && a.lastError.message);
 		case 'error': return badge('error', 'Erreur', a.lastError && a.lastError.message);
-		default: return badge('unknown', 'Non scanné');
+		default: return badge('unknown', t('cat.notScanned'));
 	}
 }
 
@@ -472,32 +472,64 @@ function competitiveRanking(c) {
  * montrait l'écusson d'un classement et le texte d'un autre, parce que l'icône
  * cherchait `rankTypeId !== 11` pendant que ce texte préférait le Premier.
  */
+/** Un classement périmé : les victoires de placement sont faites, le rang a sauté. */
+const RANK_EXPIRED = () => t('detail.rankExpired');
+
+/*
+ * `expired` et `placing` sont calculés par le moteur (cs2data.js, seuil
+ * PLACEMENT_WINS), pas ici : un compte scanné avant ce changement n'a pas ces
+ * champs, d'où le repli sur le compteur de victoires. Dupliquer la règle à deux
+ * endroits garantissait seulement qu'ils finiraient par diverger.
+ */
+function rankExpired(r) {
+	if (!r || r.rankId) return false;
+	return r.expired !== undefined ? !!r.expired : Number(r.wins) >= 10;
+}
+
 function compStatus(main) {
-	if (!main) return 'Aucun classement renvoyé par le GC';
+	if (!main) return t('detail.noRanking');
 	if (main.rankId) {
 		return main.rankTypeId === 11
-			? `Premier · ${main.rankId.toLocaleString('fr-FR')}`
-			: `${main.rankTypeLabel} · ${state.skillGroups[main.rankId] || 'groupe ' + main.rankId}`;
+			? `Premier · ${main.rankId.toLocaleString(t('locale'))}`
+			: `${rankTypeName(main)} · ${state.skillGroups[main.rankId] || t('detail.group') + ' ' + main.rankId}`;
 	}
-	// Au-delà de 10 victoires, « X/10 » n'a plus de sens : les placements sont
-	// faits et Steam renvoie quand même rank_id = 0. Ça arrive après une
-	// réinitialisation de saison ou l'expiration d'un classement. On montre donc
-	// le fait brut plutôt qu'une progression qui n'en est plus une.
-	return main.wins >= 10
-		? `Non classé — ${main.wins} victoires, aucun rang renvoyé par Steam`
-		: `Non classé (${main.wins}/10 placements)`;
+	// Les placements demandent 10 victoires. Au-delà, un rank_id = 0 ne veut plus
+	// dire « en cours de placement » mais « le classement n'est plus valide » :
+	// c'est l'expiration, observée en jeu sur un compte dans cet état exact.
+	// Steam n'a pas de champ pour le dire, donc on le déduit du couple
+	// (victoires ≥ 10, aucun rang) — et on garde le compteur à côté pour que la
+	// déduction reste vérifiable d'un coup d'œil.
+	return rankExpired(main)
+		? `${RANK_EXPIRED()} · ${main.wins} ${t('detail.wins')}`
+		: `${t('detail.unranked')} (${main.wins}/10 ${t('detail.placements')})`;
+}
+
+/**
+ * Libelle d'un type de classement, traduit.
+ *
+ * Le moteur en envoie un (en francais, fige dans cs2data.js). On prefere la
+ * traduction locale quand elle existe, et on retombe sur le sien pour un type
+ * que le dictionnaire ne connait pas encore.
+ */
+function rankTypeName(r) {
+	const k = `rank.${r.rankTypeId}`;
+	const s = t(k);
+	return s === k ? r.rankTypeLabel : s;
 }
 
 function rankingsHtml(c) {
-	if (!c || !c.rankings || !c.rankings.length) return '<div class="row"><span class="row-label">Aucun classement renvoyé par le GC</span></div>';
+	if (!c || !c.rankings || !c.rankings.length) return `<div class="row"><span class="row-label">${t('detail.noRanking')}</span></div>`;
 	return c.rankings.map((r) => {
+		// Même règle que partout ailleurs : « non classé » avec 26 victoires au
+		// compteur décrit mal un classement qui a simplement expiré.
+		const sansRang = rankExpired(r) ? RANK_EXPIRED().toLowerCase() : t('detail.unranked').toLowerCase();
 		const value = r.rankTypeId === 11
-			? `${r.rankId ? r.rankId.toLocaleString('fr-FR') : 'non classé'} · ${r.wins} v.`
-			: `${r.rankId ? state.skillGroups[r.rankId] || `groupe ${r.rankId}` : 'non classé'} · ${r.wins} v.`;
+			? `${r.rankId ? r.rankId.toLocaleString(t('locale')) : sansRang} · ${r.wins} ${t('detail.winsShort')}`
+			: `${r.rankId ? state.skillGroups[r.rankId] || `${t('detail.group')} ${r.rankId}` : sansRang} · ${r.wins} ${t('detail.winsShort')}`;
 		const maps = r.perMapRank && r.perMapRank.length
-			? `<div class="row-value mono" style="text-align:left;color:var(--text-faint)">${r.perMapRank.map((m) => `carte #${m.mapId} : ${esc(m.rankLabel)} (${m.wins} v.)`).join('<br>')}</div>`
+			? `<div class="row-value mono" style="text-align:left;color:var(--text-faint)">${r.perMapRank.map((m) => `${t('detail.map')} #${m.mapId} : ${esc(m.rankLabel)} (${m.wins} ${t('detail.winsShort')})`).join('<br>')}</div>`
 			: '';
-		return `<div class="row"><span class="row-label">${esc(r.rankTypeLabel)}</span><span class="row-value">${esc(value)}</span></div>${maps}`;
+		return `<div class="row"><span class="row-label">${esc(rankTypeName(r))}</span><span class="row-value">${esc(value)}</span></div>${maps}`;
 	}).join('');
 }
 
@@ -505,7 +537,7 @@ function renderDetail() {
 	const a = state.accounts.find((x) => x.id === state.selectedId);
 	const pane = $('#detail-pane');
 	if (!a) {
-		pane.innerHTML = '<fieldset class="frame" style="flex:1"><legend>Information</legend><div class="empty-detail">Sélectionne un compte.</div></fieldset>';
+		pane.innerHTML = `<fieldset class="frame" style="flex:1"><div class="frame-title">${t('app.information')}</div><div class="empty-detail">${t('detail.pick')}</div></fieldset>`;
 		return;
 	}
 	const c = a.cache;
@@ -524,7 +556,7 @@ function renderDetail() {
 		const transient = state.TRANSIENT.has(a.lastError.kind);
 		alert += `<div class="alert ${transient ? '' : 'danger'}">
 			<div style="font-weight:700;color:${transient ? 'var(--warn)' : 'var(--danger)'}">${
-				transient ? 'Scan reporté' : 'Dernier scan en échec'}</div>
+				transient ? t('detail.scanDeferred') : t('detail.scanFailed')}</div>
 			<div class="alert-sub">${esc(a.lastError.message)}${
 				transient && c && c.scannedAt ? ` — les infos ci-dessus datent du ${fmtDate(c.scannedAt)}.` : ''
 			}</div>${
@@ -534,7 +566,7 @@ function renderDetail() {
 			}</div>`;
 	}
 	if (c && (c.vacBanned === true || c.penaltyPermanent)) {
-		alert += `<div class="alert danger"><div class="alert-timer">${c.vacBanned === true ? 'Banni VAC' : 'Sanction définitive'}</div>
+		alert += `<div class="alert danger"><div class="alert-timer">${c.vacBanned === true ? t('detail.bannedVac') : t('detail.permanentBan')}</div>
 			<div class="alert-sub">${esc(penaltyLabel(c))}${c.penaltyReason != null ? ` · code ${c.penaltyReason}` : ''}</div></div>`;
 	} else if (left) {
 		alert += `<div class="alert"><div class="alert-timer" id="cooldown-timer">${fmtDuration(left)}</div>
@@ -543,7 +575,7 @@ function renderDetail() {
 
 	pane.innerHTML = `
 	<fieldset class="frame">
-		<legend>Information</legend>
+		<div class="frame-title">${t('app.information')}</div>
 		<div class="info-top">
 			${avatarHtml(a, true)}
 			<div class="info-id">
@@ -574,7 +606,11 @@ function renderDetail() {
 				// notable, et il ne figure plus sur la ligne compétitive depuis
 				// qu'elle ne décrit que le classement de son propre écusson.
 				c && !c.premierRating && c.premierWins
-					? `<span style="display:block;font-size:11.5px;color:var(--text-faint)">non classé · ${c.premierWins} victoire${c.premierWins > 1 ? 's' : ''}</span>`
+					? `<span style="display:block;font-size:11.5px;color:var(--text-faint)">${
+						rankExpired({ rankId: c.premierRating, wins: c.premierWins, expired: c.premierExpired })
+							? `${RANK_EXPIRED().toLowerCase()} · ${c.premierWins} ${t('detail.wins')}`
+							: `${t('detail.placement')} ${c.premierWins}/10`
+					}</span>`
 					: ''
 			}</div>
 		</div>
@@ -588,78 +624,73 @@ function renderDetail() {
 
 		<div class="rows">
 			<div class="row"><span class="row-label">Prime</span><span class="row-value">${
-				!c || c.prime == null ? 'inconnu' : c.prime ? '<span style="color:var(--prime)">oui</span>' : 'non'}</span></div>
+				!c || c.prime == null ? t('detail.unknown') : c.prime ? `<span style="color:var(--prime)">${t('detail.yes')}</span>` : t('detail.no')}</span></div>
 			<div class="row"><span class="row-label">VAC</span><span class="row-value">${
 				!c || !c.scannedAt ? '—'
-					: c.vacKnown !== true ? '<span style="color:var(--text-faint)">non communiqué</span>'
-					: c.vacBanned ? '<span style="color:var(--danger)">banni</span>' : 'aucun ban'}</span></div>
-			<div class="row"><span class="row-label">Statut compétitif</span><span class="row-value">${
+					: c.vacKnown !== true ? `<span style="color:var(--text-faint)">${t('detail.notReported')}</span>`
+					: c.vacBanned ? `<span style="color:var(--danger)">${t('detail.bannedVac')}</span>` : t('detail.noBan')}</span></div>
+			<div class="row"><span class="row-label">${t('detail.compStatus')}</span><span class="row-value">${
 				!c || !c.scannedAt ? '—'
-					: c.penaltyKnown !== true ? '<span style="color:var(--warn)">non communiqué par le GC</span>'
+					: c.penaltyKnown !== true ? `<span style="color:var(--warn)">${t('detail.notReportedGc')}</span>`
 					: c.penaltyPermanent ? `<span style="color:var(--danger)">${esc(penaltyLabel(c))}</span>`
 					: left ? `<span style="color:var(--warn)">cooldown ${fmtDuration(left)}</span>`
 					: c.penaltySentinel
-						? `aucune sanction <span style="color:var(--text-faint)">(penalty_seconds=${c.penaltyRawSeconds}, valeur sentinelle)</span>`
-						: 'aucune sanction'}</span></div>
-			<div class="row"><span class="row-label">Dernier scan</span><span class="row-value">${
-				a.lastScanAt ? `${fmtDate(a.lastScanAt)} (${fmtAgo(a.lastScanAt)})` : 'jamais'}</span></div>
+						? `${t('detail.noPenalty')} <span style="color:var(--text-faint)">(penalty_seconds=${c.penaltyRawSeconds}, ${t('detail.sentinel')})</span>`
+						: t('detail.noPenalty')}</span></div>
+			<div class="row"><span class="row-label">${t('detail.lastScan')}</span><span class="row-value">${
+				a.lastScanAt ? `${fmtDate(a.lastScanAt)} (${fmtAgo(a.lastScanAt)})` : t('detail.never')}</span></div>
 		</div>
 	</fieldset>
 
 	<fieldset class="frame">
-		<legend>Actions</legend>
+		<div class="frame-title">${t('app.actions')}</div>
 		<div class="act-grid">
-			<button class="btn btn-primary" data-act="launch" ${!a.hasPassword && !a.hasRefreshToken ? 'disabled' : ''}>▶ Lancer dans Steam</button>
-			<button class="btn" data-act="scan" ${scanning ? 'disabled' : ''}>${scanning ? 'Scan en cours…' : 'Scanner'}</button>
+			<button class="btn btn-primary" data-act="launch" ${!a.hasPassword && !a.hasRefreshToken ? 'disabled' : ''}>▶ ${t('act.launch')}</button>
+			<button class="btn" data-act="scan" ${scanning ? 'disabled' : ''}>${scanning ? t('detail.scanning') : t('act.scan')}</button>
 			<button class="btn" data-act="confirmations" ${a.hasIdentitySecret ? '' : 'disabled'}
-				title="Échanges et mises en vente en attente">Confirmations</button>
-			<button class="btn" data-act="edit">Modifier</button>
-			<button class="btn btn-danger-ghost" data-act="remove">Supprimer</button>
+				title="${t('act.confirmationsTitle')}">${t('act.confirmations')}</button>
+			<button class="btn" data-act="edit">${t('act.edit')}</button>
+			<button class="btn btn-danger-ghost" data-act="remove">${t('act.delete')}</button>
 		</div>
 
 		${scanning ? `<div class="alert" style="border-left-color:var(--accent);background:#20262f;border-color:#2d4660">
-			<div class="log-line"><span class="spinner"></span> ${esc(state.progress[a.id] || 'démarrage…')}</div></div>` : ''}
+			<div class="log-line"><span class="spinner"></span> ${esc(state.progress[a.id] || t('detail.starting'))}</div></div>` : ''}
 
 		${a.secretRejected ? `<div class="guard-row">
 			<span class="row-label">Steam Guard</span>
-			<span style="color:var(--danger);font-weight:700">secret refusé par Steam</span>
+			<span style="color:var(--danger);font-weight:700">${t('act.secretRejected')}</span>
 		</div>
-		<p class="field hint" style="margin:6px 0 0">Steam ne reconnaît aucun authenticator mobile sur ce compte :
-		le <code>shared_secret</code> enregistré est périmé ou vient d'un autre compte. Il ne produira jamais
-		de code valide — remplace-le en créant un authenticator.</p>` : `<div class="guard-row">
+		<p class="field hint" style="margin:6px 0 0">${t('act.secretRejectedHint')}</p>` : `<div class="guard-row">
 			<span class="row-label">Steam Guard</span>
 			<span class="guard-code" id="guard-code">${a.hasSharedSecret ? '·····' : '—'}</span>
 			<span class="guard-bar"><div id="guard-bar" style="width:0%"></div></span>
-			<button class="btn btn-sm" data-act="copy-code" ${a.hasSharedSecret ? '' : 'disabled'}>Copier</button>
+			<button class="btn btn-sm" data-act="copy-code" ${a.hasSharedSecret ? '' : 'disabled'}>${t('btn.copy')}</button>
 		</div>`}
 
-		${a.authenticatorPending ? `<p class="modal-error" style="margin:9px 0 0">
-			Authenticator créé mais jamais finalisé : le secret et le code de révocation sont
-			enregistrés, mais Steam Guard n'est pas encore actif. Le bouton ci-dessous reprend
-			directement à la saisie du code SMS.</p>` : ''}
+		${a.authenticatorPending ? `<p class="modal-error" style="margin:9px 0 0">${t('act.pendingAuth')}</p>` : ''}
 
 		<div class="act-grid" style="margin-top:10px">
 			${a.authenticatorPending
-				? `<button class="btn btn-sm btn-primary" data-act="authenticator" ${a.hasPassword ? '' : 'disabled'}>Terminer l'activation</button>`
+				? `<button class="btn btn-sm btn-primary" data-act="authenticator" ${a.hasPassword ? '' : 'disabled'}>${t('act.finishAuth')}</button>`
 				: a.hasSharedSecret && !a.secretRejected
-					? `<button class="btn btn-sm btn-danger-ghost" data-act="authenticator">Retirer l'authenticator</button>`
-					: `<button class="btn btn-sm" data-act="authenticator" ${a.hasPassword ? '' : 'disabled'}>Créer un authenticator</button>`}
-			${a.secretRejected ? `<button class="btn btn-sm btn-danger-ghost" data-act="drop-secret">Effacer le secret invalide</button>` : ''}
-			${a.hasRevocationCode ? '<button class="btn btn-sm" data-act="reveal-revocation">Code de révocation</button>' : ''}
+					? `<button class="btn btn-sm btn-danger-ghost" data-act="authenticator">${t('act.removeAuth')}</button>`
+					: `<button class="btn btn-sm" data-act="authenticator" ${a.hasPassword ? '' : 'disabled'}>${t('act.createAuth')}</button>`}
+			${a.secretRejected ? `<button class="btn btn-sm btn-danger-ghost" data-act="drop-secret">${t('act.dropSecret')}</button>` : ''}
+			${a.hasRevocationCode ? `<button class="btn btn-sm" data-act="reveal-revocation">${t('act.revocationCode')}</button>` : ''}
 		</div>
 		${!a.hasPassword && !a.hasSharedSecret
 			? '<p class="field hint" style="margin-top:6px">Enregistre d\'abord le mot de passe Steam (bouton « Modifier »).</p>' : ''}
 	</fieldset>
 
 	<fieldset class="frame">
-		<legend>Classements</legend>
+		<div class="frame-title">${t('app.rankings')}</div>
 		${rankingsHtml(c)}
 	</fieldset>
 
 	<fieldset class="frame">
-		<legend>Notes</legend>
-		<textarea class="note-input" id="note-input" placeholder="Note libre (ex. origine du compte, email associé…)">${esc(a.note)}</textarea>
-		${c ? `<details><summary>Données brutes du dernier scan</summary><pre class="raw-dump">${esc(JSON.stringify(c, null, 2))}</pre></details>` : ''}
+		<div class="frame-title">${t('app.notes')}</div>
+		<textarea class="note-input" id="note-input" placeholder="${t('detail.notePlaceholder')}">${esc(a.note)}</textarea>
+		${c ? `<details><summary>${t('detail.rawData')}</summary><pre class="raw-dump">${esc(JSON.stringify(c, null, 2))}</pre></details>` : ''}
 	</fieldset>
 	`;
 
@@ -676,7 +707,7 @@ function renderStatus() {
 	if (q.queued.length) parts.push(`${q.queued.length} en attente`);
 	if (q.pausedUntil > Date.now()) parts.push(`pause (${q.pauseReason}) ${fmtDuration(q.pausedUntil - Date.now())}`);
 	$('#status-queue').textContent = parts.join(' · ');
-	if (!q.busy && !parts.length) $('#status-text').textContent = 'Prêt.';
+	if (!q.busy && !parts.length) $('#status-text').textContent = t('app.ready');
 }
 
 function renderAll() {
@@ -738,8 +769,8 @@ function replaceAccount(updated) {
 async function startScan(ids, forceCredentials = false) {
 	try {
 		const added = await call(window.api.scan.start(ids, forceCredentials));
-		if (!added.length) toast('Rien à scanner (déjà en file ?)');
-		else $('#status-text').textContent = `${added.length} compte(s) ajouté(s) à la file.`;
+		if (!added.length) toast(t('toast.nothingToScan'));
+		else $('#status-text').textContent = `${added.length} ${t('toast.queued')}`;
 	} catch (err) {
 		toast(err.message, 'error');
 	}
@@ -750,13 +781,13 @@ async function launchAccount(id, mode) {
 	$('#status-text').textContent = `Lancement de ${displayName(a)}…`;
 	try {
 		const res = await call(window.api.launch.account(id, mode));
-		const msg = [`Steam lancé (${res.mode === 'autologin' ? 'session mémorisée' : 'mot de passe'})`];
-		if (res.code) msg.push(`code Steam Guard ${res.code} copié`);
+		const msg = [`${t('toast.launched')} (${res.mode === 'autologin' ? t('toast.launchedRemembered') : t('toast.launchedPassword')})`];
+		if (res.code) msg.push(t('toast.guardCopied', { code: res.code }));
 		toast(msg.join(' · '), 'ok');
 		$('#status-text').textContent = res.notes.join(' ');
 	} catch (err) {
 		toast(err.message, 'error');
-		$('#status-text').textContent = 'Lancement échoué.';
+		$('#status-text').textContent = t('toast.launchFailed');
 	}
 }
 
@@ -851,7 +882,7 @@ function authenticatorModal(account) {
 		if (copy) {
 			copy.addEventListener('click', async () => {
 				await window.api.clipboard.write(authLogLines.join('\n'));
-				toast('Journal copié');
+				toast(t('auth.logCopied'));
 			});
 		}
 	};
@@ -914,7 +945,7 @@ function authenticatorModal(account) {
 		modal.querySelector('#a-ack').addEventListener('change', (e) => { next.disabled = !e.target.checked; });
 		modal.querySelector('#a-copy').addEventListener('click', async () => {
 			await window.api.clipboard.write(info.revocationCode);
-			toast('Code de révocation copié');
+			toast(t('auth.revocationCopied'));
 		});
 		next.addEventListener('click', () => stepSms(info.phoneHint));
 	};
@@ -1363,11 +1394,11 @@ function addAccountModal() {
 			if (auto.checked) {
 				// Le compte est déjà dans le coffre : même si la création échoue
 				// ensuite, rien n'est perdu et on peut relancer depuis le détail.
-				toast('Compte ajouté — création de l\'authenticator…');
+				toast(t('add.addedAuth'));
 				return authenticatorModal(acc);
 			}
 			closeModal();
-			toast('Compte ajouté', 'ok');
+			toast(t('add.added'), 'ok');
 		} catch (err) {
 			submit.disabled = false;
 			modalError(modal, err.message);
@@ -1411,7 +1442,7 @@ function editAccountModal(a) {
 			replaceAccount(acc);
 			closeModal();
 			renderAll();
-			toast('Compte mis à jour', 'ok');
+			toast(t('edit.updated'), 'ok');
 		} catch (err) {
 			modalError(modal, err.message);
 		}
@@ -1543,7 +1574,7 @@ function shredOfferModal(file, count) {
 		try {
 			await call(window.api.json.shred(file));
 			closeModal();
-			toast('Fichier écrasé puis supprimé', 'ok');
+			toast(t('imp.shredded'), 'ok');
 		} catch (err) {
 			modalError(modal, err.message);
 		}
@@ -1553,33 +1584,33 @@ function shredOfferModal(file, count) {
 function settingsModal() {
 	const s = state.settings;
 	const modal = openModal(`
-		<h2>Réglages</h2>
-		<p class="modal-sub">Les délais protègent du rate limit Steam. Le login par mot de passe est le plus sensible ; le login par refresh token quasi pas.</p>
+		<h2>${t('set.title')}</h2>
+		<p class="modal-sub">${t('set.sub')}</p>
 		<div class="field-row">
-			<div class="field"><label>Délai entre logins par mot de passe (s)</label><input id="s-cred" type="number" min="5" value="${Math.round(s.credentialDelayMs / 1000)}" /></div>
-			<div class="field"><label>Délai entre logins par token (s)</label><input id="s-tok" type="number" min="1" value="${Math.round(s.tokenDelayMs / 1000)}" /></div>
+			<div class="field"><label>${t('set.credDelay')}</label><input id="s-cred" type="number" min="5" value="${Math.round(s.credentialDelayMs / 1000)}" /></div>
+			<div class="field"><label>${t('set.tokenDelay')}</label><input id="s-tok" type="number" min="1" value="${Math.round(s.tokenDelayMs / 1000)}" /></div>
 		</div>
 		<div class="field-row">
-			<div class="field"><label>Timeout login (s)</label><input id="s-login" type="number" min="10" value="${Math.round(s.loginTimeoutMs / 1000)}" /></div>
-			<div class="field"><label>Timeout Game Coordinator (s)</label><input id="s-gc" type="number" min="10" value="${Math.round(s.gcTimeoutMs / 1000)}" /></div>
+			<div class="field"><label>${t('set.loginTimeout')}</label><input id="s-login" type="number" min="10" value="${Math.round(s.loginTimeoutMs / 1000)}" /></div>
+			<div class="field"><label>${t('set.gcTimeout')}</label><input id="s-gc" type="number" min="10" value="${Math.round(s.gcTimeoutMs / 1000)}" /></div>
 		</div>
-		<div class="field"><label>Scan considéré périmé après (h)</label><input id="s-stale" type="number" min="1" value="${Math.round(s.staleAfterMs / 3600000)}" /></div>
-		<div class="checkbox"><input type="checkbox" id="s-offline" ${s.offlinePersona ? 'checked' : ''} /><label for="s-offline">Se connecter en invisible pendant le scan</label></div>
-		<div class="checkbox"><input type="checkbox" id="s-recent" ${s.fetchRecentGames ? 'checked' : ''} /><label for="s-recent">Demander l'historique des parties au GC (dernière partie)</label></div>
-		<div class="field"><label>Mode de lancement Steam</label>
+		<div class="field"><label>${t('set.staleAfter')}</label><input id="s-stale" type="number" min="1" value="${Math.round(s.staleAfterMs / 3600000)}" /></div>
+		<div class="checkbox"><input type="checkbox" id="s-offline" ${s.offlinePersona ? 'checked' : ''} /><label for="s-offline">${t('set.invisible')}</label></div>
+		<div class="checkbox"><input type="checkbox" id="s-recent" ${s.fetchRecentGames ? 'checked' : ''} /><label for="s-recent">${t('set.recentGames')}</label></div>
+		<div class="field"><label>${t('set.launchMode')}</label>
 			<select id="s-launch">
-				<option value="auto" ${s.launchMode === 'auto' ? 'selected' : ''}>Auto : session mémorisée si possible, sinon mot de passe</option>
-				<option value="autologin" ${s.launchMode === 'autologin' ? 'selected' : ''}>Toujours session mémorisée (registre + loginusers.vdf)</option>
-				<option value="password" ${s.launchMode === 'password' ? 'selected' : ''}>Toujours mot de passe (steam.exe -login)</option>
+				<option value="auto" ${s.launchMode === 'auto' ? 'selected' : ''}>${t('set.launchAuto')}</option>
+				<option value="autologin" ${s.launchMode === 'autologin' ? 'selected' : ''}>${t('set.launchRemembered')}</option>
+				<option value="password" ${s.launchMode === 'password' ? 'selected' : ''}>${t('set.launchPassword')}</option>
 			</select></div>
-		<div class="field"><label>Chemin de steam.exe (vide = détection via le registre)</label><input id="s-steam" value="${esc(s.steamPath || '')}" placeholder="e:\\steam\\steam.exe" /></div>
+		<div class="field"><label>${t('set.steamPath')}</label><input id="s-steam" value="${esc(s.steamPath || '')}" placeholder="e:\\steam\\steam.exe" /></div>
 		<hr style="border:0;border-top:1px solid var(--line);margin:16px 0" />
-		<h2 style="font-size:14px">Mot de passe maître</h2>
+		<h2 style="font-size:14px">${t('set.masterPassword')}</h2>
 		<div class="field-row">
-			<div class="field"><label>Actuel</label><input id="s-old" type="password" autocomplete="off" /></div>
-			<div class="field"><label>Nouveau (8+ caractères)</label><input id="s-new" type="password" autocomplete="off" /></div>
+			<div class="field"><label>${t('set.current')}</label><input id="s-old" type="password" autocomplete="off" /></div>
+			<div class="field"><label>${t('set.new')}</label><input id="s-new" type="password" autocomplete="off" /></div>
 		</div>
-		<div class="modal-actions"><button class="btn" data-close>Fermer</button><button class="btn btn-primary" id="f-submit">Enregistrer</button></div>
+		<div class="modal-actions"><button class="btn" data-close>${t('btn.close')}</button><button class="btn btn-primary" id="f-submit">${t('btn.save')}</button></div>
 	`);
 	modal.querySelector('#f-submit').addEventListener('click', async () => {
 		try {
@@ -1599,9 +1630,9 @@ function settingsModal() {
 			const newPw = modal.querySelector('#s-new').value;
 			if (oldPw || newPw) {
 				await call(window.api.vault.changePassword(oldPw, newPw));
-				toast('Réglages et mot de passe maître enregistrés', 'ok');
+				toast(t('set.savedWithPassword'), 'ok');
 			} else {
-				toast('Réglages enregistrés', 'ok');
+				toast(t('set.saved'), 'ok');
 			}
 			closeModal();
 		} catch (err) {
@@ -1658,7 +1689,7 @@ function bindEvents() {
 		const ext = e.target.closest('[data-ext]');
 		if (ext) { e.preventDefault(); window.api.openExternal(ext.dataset.ext); return; }
 		const copy = e.target.closest('[data-copy]');
-		if (copy && copy.dataset.copy) { await window.api.clipboard.write(copy.dataset.copy); toast('Copié'); return; }
+		if (copy && copy.dataset.copy) { await window.api.clipboard.write(copy.dataset.copy); toast(t('toast.copied')); return; }
 		const btn = e.target.closest('[data-act]');
 		if (!btn) return;
 		switch (btn.dataset.act) {
@@ -1667,22 +1698,22 @@ function bindEvents() {
 			case 'edit': editAccountModal(a); break;
 			case 'remove': confirmRemoveModal(a); break;
 			case 'copy-code':
-				if (state.totp && state.totp.id === a.id) { await window.api.clipboard.write(state.totp.code); toast(`Code ${state.totp.code} copié`, 'ok'); }
+				if (state.totp && state.totp.id === a.id) { await window.api.clipboard.write(state.totp.code); toast(t('toast.codeCopied', { code: state.totp.code }), 'ok'); }
 				break;
 			case 'confirmations': confirmationsModal(a); break;
 			case 'authenticator': authenticatorModal(a); break;
 			case 'drop-secret':
 				await call(window.api.accounts.patch(a.id, { sharedSecret: '', identitySecret: '' }));
 				await reloadAccounts();
-				toast('Secret invalide effacé');
+				toast(t('toast.secretCleared'));
 				break;
 			case 'reveal-revocation': {
 				const code = await call(window.api.accounts.reveal(a.id, 'revocationCode'));
-				openModal(`<h2>Code de révocation</h2><p class="modal-sub">${esc(a.username)}</p>
+				openModal(`<h2>${t('reveal.title')}</h2><p class="modal-sub">${esc(a.username)}</p>
 					<div class="cooldown-box permanent" style="text-align:center">
 						<div class="cooldown-timer" style="font-size:26px;letter-spacing:3px;color:var(--text)">${esc(code)}</div>
 					</div>
-					<p class="field hint">Seule porte de secours si tu perds le secret. Steam ne le réaffiche jamais.</p>
+					<p class="field hint">${t('reveal.hint')}</p>
 					<div class="modal-actions"><button class="btn btn-primary" data-close>Fermer</button></div>`);
 				break;
 			}
@@ -1705,10 +1736,10 @@ function bindEvents() {
 		const ids = state.accounts.filter(scannable).map((a) => a.id);
 		const skipped = state.accounts.length - ids.length;
 		if (!ids.length) {
-			return toast(skipped ? `${skipped} compte(s) en cooldown, rien d'autre à scanner` : 'Aucun compte');
+			return toast(skipped ? t('toast.cooldownOnly', { n: skipped }) : t('toast.noAccount'));
 		}
 		startScan(ids);
-		if (skipped) toast(`${skipped} compte(s) en cooldown ignoré(s)`);
+		if (skipped) toast(t('toast.cooldownSkipped', { n: skipped }));
 	});
 	$('#btn-scan-stale').addEventListener('click', () => {
 		const limit = Date.now() - (state.settings.staleAfterMs || 0);
@@ -1716,16 +1747,30 @@ function bindEvents() {
 		const ids = stale.filter(scannable).map((a) => a.id);
 		const skipped = stale.length - ids.length;
 		if (!ids.length) {
-			return toast(skipped ? `${skipped} compte(s) périmé(s) mais en cooldown` : 'Aucun compte périmé');
+			return toast(skipped ? t('toast.staleButCooldown', { n: skipped }) : t('toast.noStale'));
 		}
 		startScan(ids);
-		if (skipped) toast(`${skipped} compte(s) en cooldown ignoré(s)`);
+		if (skipped) toast(t('toast.cooldownSkipped', { n: skipped }));
 	});
-	$('#btn-scan-stop').addEventListener('click', async () => { await window.api.scan.stop(); toast('File de scan arrêtée'); });
+	$('#btn-scan-stop').addEventListener('click', async () => { await window.api.scan.stop(); toast(t('toast.queueStopped')); });
 	$('#btn-export').addEventListener('click', exportModal);
 	$('#btn-backup').addEventListener('click', backupModal);
 	$('#btn-add').addEventListener('click', addAccountModal);
 	$('#btn-import').addEventListener('click', importModal);
+	// Bascule de langue. Les textes statiques sont réappliqués par i18n, le reste
+	// se régénère au prochain rendu — d'où le renderAll() juste après.
+	const showLang = () => { $('#lang-code').textContent = window.i18n.getLang().toUpperCase(); };
+	showLang();
+	window.i18n.applyStatic();
+	$('#btn-lang').addEventListener('click', () => {
+		const langs = window.i18n.LANGS;
+		const next = langs[(langs.indexOf(window.i18n.getLang()) + 1) % langs.length];
+		window.i18n.setLang(next);
+		showLang();
+		renderAll();
+		renderDetail();
+	});
+
 	$('#btn-settings').addEventListener('click', settingsModal);
 	$('#btn-lock').addEventListener('click', async () => {
 		await window.api.vault.lock();
@@ -1755,15 +1800,15 @@ function bindEvents() {
 		renderAll();
 		const name = r.account ? displayName(r.account) : '';
 		if (!r.ok) toast(`${name} : ${r.error.message}`, 'error');
-		else $('#status-text').textContent = `${name} scanné.`;
+		else $('#status-text').textContent = t('toast.scanned', { name });
 	});
 	window.api.on('ratelimit', (r) => {
-		toast(`Rate limit Steam — pause jusqu'à ${fmtDate(r.until)}. N'insiste pas, ça empire.`, 'error');
+		toast(t('toast.rateLimit', { time: fmtDate(r.until) }), 'error');
 	});
 	window.api.on('log', (l) => { $('#status-text').textContent = l.message; });
 	window.api.on('auth2fa', (p) => { if (authFlowActive) appendAuthLog(p.message); });
 	installRankFallback();
-	window.api.on('idle', () => { $('#status-text').textContent = 'File de scan terminée.'; });
+	window.api.on('idle', () => { $('#status-text').textContent = t('toast.queueDone'); });
 }
 
 // ───────────────────────── démarrage / coffre ─────────────────────────
@@ -1786,10 +1831,10 @@ async function boot() {
 	state.TRANSIENT = new Set(status.transientErrorKinds || []);
 	const creating = !status.exists;
 	$('#lock-sub').textContent = creating
-		? 'Premier lancement : choisis un mot de passe maître. Il chiffre tous les secrets.'
-		: 'Déverrouille le coffre pour continuer.';
+		? t('lock.subCreate')
+		: t('lock.sub');
 	$('#master-password-confirm').hidden = !creating;
-	$('#lock-submit').textContent = creating ? 'Créer le coffre' : 'Déverrouiller';
+	$('#lock-submit').textContent = creating ? t('lock.create') : t('lock.unlock');
 
 	$('#lock-form').addEventListener('submit', async (e) => {
 		e.preventDefault();
@@ -1798,7 +1843,7 @@ async function boot() {
 		errEl.hidden = true;
 		try {
 			if (creating) {
-				if (pw !== $('#master-password-confirm').value) throw new Error('Les deux mots de passe diffèrent');
+				if (pw !== $('#master-password-confirm').value) throw new Error(t('lock.mismatch'));
 				await call(window.api.vault.create(pw));
 			} else {
 				await call(window.api.vault.unlock(pw));
@@ -1818,5 +1863,5 @@ async function boot() {
 }
 
 boot().catch((err) => {
-	document.body.innerHTML = `<pre style="padding:20px;color:#ef5f5f">Erreur au démarrage : ${esc(err.message)}</pre>`;
+	document.body.innerHTML = `<pre style="padding:20px;color:#ef5f5f">${t('lock.bootError')} : ${esc(err.message)}</pre>`;
 });

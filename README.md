@@ -34,6 +34,18 @@ On first launch the app asks for a **master password**. It encrypts the vault
 `shared_secret` values and refresh tokens. The password is stored nowhere: lose
 it and the vault is unrecoverable.
 
+## Language
+
+The interface is in **English by default**. The globe button at the bottom of
+the left rail switches to French, and the choice is remembered between runs.
+
+The two dictionaries live in `src/renderer/i18n.js`. English is the reference:
+a key missing from French falls back to the English string rather than showing
+a blank, and an unknown key renders as its own name so the gap is visible
+instead of silent.
+
+Messages written by the engine (the main process) are still French only.
+
 ## Adding your accounts
 
 1. **Import SDA** → pick your `maFiles` folder and enter the SDA password. This
@@ -330,7 +342,11 @@ src/main/
   confirmations.js   mobile trade/market confirmations
   launcher.js        launching an account in the Steam client
   redact.js          masks secrets at the single logging exit point
-src/renderer/        UI (HTML/CSS/JS, no framework)
+src/renderer/
+  index.html         markup, annotated with data-i18n attributes
+  renderer.js        the whole UI (no framework)
+  i18n.js            English and French dictionaries, language switch
+  styles.css         theme
 tools/
   scan-cli.js        a scan from the terminal, raw GC data
   probe-gc.js        lists every message received from the GC

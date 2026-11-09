@@ -35,6 +35,18 @@ coffre (`%APPDATA%\cs2-account-manager\vault.json`) où sont rangés mots de pas
 Steam, `shared_secret` et refresh tokens. Il n'est stocké nulle part : si tu le
 perds, le coffre est irrécupérable.
 
+## Langue
+
+L'interface est **en anglais par défaut**. Le bouton globe en bas du rail de
+gauche bascule en français, et le choix est retenu d'un lancement à l'autre.
+
+Les deux dictionnaires sont dans `src/renderer/i18n.js`. L'anglais sert de
+référence : une clé absente du français retombe sur la chaîne anglaise plutôt
+que d'afficher un vide, et une clé inconnue s'affiche sous son propre nom —
+le trou se voit au lieu de passer inaperçu.
+
+Les messages écrits par le moteur (processus principal) restent en français.
+
 ## Mettre ses comptes dedans
 
 1. **Importer SDA** → choisis ton dossier `maFiles`, saisis le mot de passe SDA.
@@ -333,7 +345,11 @@ src/main/
   confirmations.js   confirmations mobiles (échanges, marché)
   launcher.js        lancement d'un compte dans le client Steam
   redact.js          masque les secrets au point de sortie unique des journaux
-src/renderer/        interface (HTML/CSS/JS, sans framework)
+src/renderer/
+  index.html         balisage, annote par des attributs data-i18n
+  renderer.js        toute l'interface (sans framework)
+  i18n.js            dictionnaires anglais et francais, bascule de langue
+  styles.css         theme
 tools/
   scan-cli.js        un scan depuis le terminal, données GC brutes
   probe-gc.js        liste chaque message reçu du GC

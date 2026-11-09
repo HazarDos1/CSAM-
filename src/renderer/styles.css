@@ -201,9 +201,23 @@ a:hover { text-decoration: underline; }
 	padding: 8px 9px 9px;
 	min-height: 0; min-width: 0;
 }
-.frame > legend {
-	padding: 0 5px;
-	margin-left: 1px;
+/*
+ * Le titre de cadre n'est plus un <legend>.
+ *
+ * Un <legend> est posé À CHEVAL sur la bordure du <fieldset> : sa moitié haute
+ * dépasse, et le trait passe derrière le texte — d'où l'impression que les
+ * titres flottent hors des cadres. Tenter de le ramener avec `float` lui retire
+ * bien son placement spécial, mais casse la mise en page : le flottant n'est pas
+ * contenu, le cadre Options s'effondre et le panneau de détail se décale.
+ *
+ * Un simple <div> n'a aucun de ces comportements : il se pose dans le flux,
+ * à l'intérieur du cadre, sous une ligne de séparation.
+ */
+.frame > .frame-title {
+	padding: 0 0 5px;
+	margin: 0 0 8px;
+	border-bottom: 1px solid rgba(0, 0, 0, .35);
+	box-shadow: 0 1px 0 rgba(255, 255, 255, .09);
 	font-size: 12.5px;
 	font-weight: 700;
 	letter-spacing: .5px;
@@ -519,3 +533,6 @@ p.field { display: block; }
 }
 .conf-sum { color: #d2d4d8; font-size: 12px; margin-top: 2px; font-weight: 600; }
 .conf-time { color: #a9adb5; font-size: 11px; margin-top: 2px; }
+
+/* Bouton de langue du rail : un code à deux lettres, pas une icône. */
+.rail-lang { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; color: #c9ccd2; }

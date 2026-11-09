@@ -54,6 +54,22 @@ const PERMANENT_PENALTY_REASONS = new Set([10, 11]);
  */
 const MAX_PLAUSIBLE_PENALTY_SECONDS = 30 * 24 * 3600;
 
+/*
+ * Nombre de victoires qui donne droit à un classement, en Premier comme en
+ * compétitif hérité. En dessous, on est en placement.
+ *
+ * C'est ce seuil qui permet de distinguer deux situations que le GC rend
+ * identiques — `rank_id = 0` dans les deux cas :
+ *
+ *   wins < 10  : placement en cours, le classement n'a jamais existé
+ *   wins >= 10 : il a existé puis disparu, donc il a EXPIRÉ
+ *
+ * CS2 le confirme de son côté : sur un compte à 26 victoires Premier sans note,
+ * le jeu affiche « Note CS expirée » (relevé le 09/11/2026). Le GC, lui, ne
+ * transmet aucun indicateur d'expiration : il faut le déduire du compteur.
+ */
+const PLACEMENT_WINS = 10;
+
 const RANK_TYPES = {
 	6: 'Wingman',
 	7: 'Compétitif (héritage CS:GO)',
@@ -126,11 +142,18 @@ function normalizeAccountData(gc, scannedAt, opts = {}) {
 	const penaltySentinel = rawPenaltySeconds !== null && rawPenaltySeconds > MAX_PLAUSIBLE_PENALTY_SECONDS;
 	const penaltySeconds = penaltySentinel ? 0 : rawPenaltySeconds;
 	const penaltyReason = has(gc.penalty_reason) ? Number(gc.penalty_reason) : (authoritative ? 0 : null);
-	const rankings = (gc.rankings || []).map((r) => ({
+	const rankings = (gc.rankings || []).map((r) => {
+		const rankId = Number(r.rank_id || 0);
+		const wins = Number(r.wins || 0);
+		return {
 		rankTypeId: Number(r.rank_type_id || 0),
 		rankTypeLabel: rankTypeLabel(Number(r.rank_type_id || 0)),
-		rankId: Number(r.rank_id || 0),
-		wins: Number(r.wins || 0),
+		rankId,
+		wins,
+		// Classement perdu après avoir été obtenu : voir PLACEMENT_WINS.
+		expired: rankId === 0 && wins >= PLACEMENT_WINS,
+		// Placement réellement en cours, donc le « x/10 » a un sens.
+		placing: rankId === 0 && wins < PLACEMENT_WINS,
 		rankChange: r.rank_change ? Number(r.rank_change) : 0,
 		leaderboardName: r.leaderboard_name || '',
 		perMapRank: (r.per_map_rank || []).map((m) => ({
@@ -139,7 +162,8 @@ function normalizeAccountData(gc, scannedAt, opts = {}) {
 			rankLabel: skillGroupLabel(Number(m.rank_id || 0)),
 			wins: Number(m.wins || 0)
 		}))
-	}));
+		};
+	});
 
 	const premier = rankings.find((r) => r.rankTypeId === 11) || null;
 
@@ -161,6 +185,8 @@ function normalizeAccountData(gc, scannedAt, opts = {}) {
 		playerCurXp: gc.player_cur_xp === undefined ? null : Number(gc.player_cur_xp),
 		premierRating: premier ? premier.rankId : 0,
 		premierWins: premier ? premier.wins : 0,
+		// « Note CS expirée » dans le vocabulaire du jeu.
+		premierExpired: !!(premier && premier.expired),
 		premierLabel: premier ? formatPremier(premier.rankId) : null,
 		rankings,
 		inMatch: !!gc.ongoingmatch,
@@ -238,6 +264,7 @@ module.exports = {
 	normalizeAccountData,
 	categorize,
 	penaltyReasonLabel,
+	PLACEMENT_WINS,
 	penaltyEndsAt,
 	MAX_PLAUSIBLE_PENALTY_SECONDS,
 	skillGroupLabel,
